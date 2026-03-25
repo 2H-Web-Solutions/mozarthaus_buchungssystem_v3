@@ -2,6 +2,7 @@ import { doc, runTransaction, collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Booking } from '../types/schema';
+import { notifyN8n } from './n8nService';
 
 /**
  * Real-time active subscription listener mapped across all standard client Bookings.
@@ -65,6 +66,9 @@ export async function updateBookingStatus(
       }
       transaction.update(bookingRef, updates);
     });
+    
+    // Dispatch async webhook representing backend status drift
+    notifyN8n('booking_status_changed', { bookingId, newStatus, paymentMethod });
     
   } catch (error) {
     console.error('Error shifting transaction state', error);

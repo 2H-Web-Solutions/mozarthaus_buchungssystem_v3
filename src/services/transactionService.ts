@@ -2,6 +2,7 @@ import { doc, runTransaction, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Booking, Seat } from '../types/schema';
+import { notifyN8n } from './n8nService';
 
 /**
  * Ensures strict cross-client data integrity when finalizing reservations.
@@ -49,6 +50,9 @@ export async function executeBookingTransaction(
       };
       transaction.set(bookingRef, newBooking);
     });
+
+    // Emitting reliable outbound webhook event to remote n8n orchestration nodes
+    notifyN8n('booking_created', { bookingId, eventId: bookingData.eventId, tickets: bookingData.tickets });
 
     return bookingId;
   } catch (error) {

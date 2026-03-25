@@ -4,9 +4,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
+import { useN8nActions } from '../hooks/useN8nActions';
 
 export function Sidebar() {
   const location = useLocation();
+  const { isSyncing } = useN8nActions();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [caption, setCaption] = useState('Buchungssystem Mozarthaus');
   const [fontSize, setFontSize] = useState('text-xl');
@@ -85,9 +87,20 @@ export function Sidebar() {
 
       {/* Bottom Area */}
       <div className="border-t border-gray-400 mx-4"></div>
-      <div className="p-4 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-        <span className="text-xs text-gray-700">System Online</span>
+      <div className="p-4 flex flex-col gap-3">
+        {/* Core System Status */}
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse ring-2 ring-green-500/30"></div>
+          <span className="text-sm font-medium text-gray-700 tracking-tight">System Online</span>
+        </div>
+        
+        {/* n8n Automations Sync Pulse */}
+        <div className={`flex items-center gap-2 transition-opacity duration-300 ${isSyncing ? 'opacity-100' : 'opacity-40'}`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${isSyncing ? 'bg-blue-500 animate-ping' : 'bg-gray-400'}`}></div>
+          <span className={`text-xs font-bold ${isSyncing ? 'text-blue-700' : 'text-gray-500'}`}>
+            {isSyncing ? 'n8n Sync Active' : 'n8n Sync Idle'}
+          </span>
+        </div>
       </div>
     </div>
   );
