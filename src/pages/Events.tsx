@@ -19,7 +19,11 @@ export function Events() {
     const unsub = onSnapshot(collection(db, `apps/${APP_ID}/events`), snap => {
       const evts: Event[] = [];
       snap.forEach(d => evts.push({ id: d.id, ...d.data() } as Event));
-      evts.sort((a,b) => a.date.toMillis() - b.date.toMillis());
+      evts.sort((a,b) => {
+        const timeA = (a.date as any)?.toMillis ? (a.date as any).toMillis() : new Date(a.date as string).getTime();
+        const timeB = (b.date as any)?.toMillis ? (b.date as any).toMillis() : new Date(b.date as string).getTime();
+        return timeA - timeB;
+      });
       setEvents(evts);
     });
     return () => unsub();
@@ -87,9 +91,15 @@ export function Events() {
           <tbody className="divide-y divide-gray-200">
              {events.length === 0 ? (
                <tr><td colSpan={4} className="p-8 text-center text-gray-500">Keine Events vorhanden.</td></tr>
-             ) : events.map(evt => (
+              ) : events.map(evt => (
                <tr key={evt.id} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/events/${evt.id}`)}>
-                 <td className="p-4 whitespace-nowrap">{evt.date.toDate().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })}</td>
+                 <td className="p-4 whitespace-nowrap">
+                   {evt.time && typeof evt.date !== 'string' && (evt.date as any)?.toDate 
+                     ? `${(evt.date as any).toDate().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric'})}, ${evt.time}` 
+                     : (evt.date as any)?.toDate 
+                       ? (evt.date as any).toDate().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' }) 
+                       : `${evt.date} ${evt.time || ''}`}
+                 </td>
                  <td className="p-4 font-medium text-gray-900">{evt.title}</td>
                  <td className="p-4">
                    <span className={`px-2 py-1 text-xs rounded-full ${evt.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

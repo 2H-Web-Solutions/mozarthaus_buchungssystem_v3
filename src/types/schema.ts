@@ -3,7 +3,8 @@ import { Timestamp } from 'firebase/firestore';
 export interface Event {
   id: string;
   title: string;
-  date: Timestamp;
+  date: Timestamp | string;
+  time?: string;
   status: 'active' | 'completed' | 'cancelled';
 }
 

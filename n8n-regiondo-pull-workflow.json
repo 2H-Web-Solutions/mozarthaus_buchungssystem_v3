@@ -68,7 +68,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.item.json.data || {};\nconst mappedEvents = [];\n\nfor (const [date, times] of Object.entries(data)) {\n  for (const time of times) {\n    // Generiere eine eindeutige ID aus Datum und Zeit, um Duplikate bei mehrfachem Sync zu verhindern\n    const eventId = `event_${date.replace(/-/g, '')}_${time.replace(/:/g, '')}`;\n    \n    mappedEvents.push({\n      json: {\n        id: eventId,\n        date: date,\n        time: time.substring(0, 5), // \"20:00:00\" wird zu \"20:00\"\n        title: 'Mozart Ensemble',\n        status: 'active',\n        updatedAt: new Date().toISOString()\n      }\n    });\n  }\n}\n\nreturn mappedEvents;"
+        "jsCode": "const data = $input.item.json.data || {};\nconst mappedEvents = [];\n\nfor (const [date, timesArray] of Object.entries(data)) {\n  for (const timeObj of timesArray) {\n    const timeString = String(Array.isArray(timeObj) ? timeObj[0] : timeObj);\n    \n    const eventId = `event_${date.replace(/-/g, '')}_${timeString.replace(/:/g, '')}`;\n    \n    mappedEvents.push({\n      json: {\n        id: eventId,\n        date: date,\n        time: timeString.substring(0, 5),\n        title: 'Mozart Ensemble',\n        status: 'active',\n        updatedAt: new Date().toISOString()\n      }\n    });\n  }\n}\n\nreturn mappedEvents;"
       },
       "name": "Data Mapping",
       "type": "n8n-nodes-base.code",
