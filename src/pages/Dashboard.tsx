@@ -1,30 +1,24 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
-import { db } from '../lib/firebase';
-import { APP_ID } from '../lib/constants';
-import { Booking, Event } from '../types/schema';
-import { Activity, CalendarDays, Ticket, Euro, ArrowRight, Download } from 'lucide-react';
+import { collection, onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-export function Dashboard() {
-  const navigate = useNavigate();
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [nextEvent, setNextEvent] = useState<Event | null>(null);
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+... 
 
   const handleSyncEvents = async () => {
-    const loadingToast = toast.loading('Synchronisation mit Regiondo läuft...');
+    const loadingToast = toast.loading('Synchronisations-Trigger wird an n8n gesendet...');
     try {
-      await fetch('http://up-seo-2025/webhook/sync-regiondo-events', {
-        method: 'GET',
-        mode: 'no-cors' // <-- Verhindert, dass der lokale Browser (CORS) den Request ohne Antwort blockiert
+      // Global Rule 2.C: n8n TRIGGERS - Niemals Webhooks direkt aus dem Client aufrufen!
+      // Wir schreiben stattdessen ein asynchrones Action-Dokument, das n8n via Firebase Listener aufgreift.
+      const actionRef = doc(collection(db, `apps/${APP_ID}/actions`));
+      await setDoc(actionRef, {
+        action_type: 'sync_regiondo_events',
+        status: 'pending',
+        result: null,
+        createdAt: serverTimestamp()
       });
-      toast.success('Webhook an n8n gefeuert! Checke n8n oder Firestore für Updates.', { id: loadingToast });
+      
+      toast.success('Sync-Befehl erfolgreich in die Datenbank geschrieben! n8n übernimmt jetzt.', { id: loadingToast });
     } catch (error) {
-      console.error('Fehler beim n8n-Sync:', error);
-      toast.error('Sync fehlgeschlagen. Nutzt du Vercel? Vercel (HTTPS) verbietet HTTP-Requests ins lokale Netzwerk!', { id: loadingToast });
+      console.error('Fehler beim Datenbank-Trigger:', error);
+      toast.error('Datenbankfehler: Konnte den Sync-Befehl nicht absetzen.', { id: loadingToast });
     }
   };
 
