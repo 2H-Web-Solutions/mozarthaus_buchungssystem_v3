@@ -12,10 +12,12 @@ import { PartnerTypes } from './pages/PartnerTypes';
 import { BookingFlow } from './components/booking/BookingFlow';
 import { SyncValidator } from './components/admin/SyncValidator';
 import { Statistics } from './pages/Statistics';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <Router>
+      <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<DashboardShell />}>
           <Route index element={<Dashboard />} />
