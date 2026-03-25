@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
 import { useNavigate } from 'react-router-dom';
 import { executeBookingTransaction } from '../../services/transactionService';
+import { Event } from '../../types/schema';
 import { SeatMap } from './SeatMap';
 import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export function BookingFlow() {
   const navigate = useNavigate();
   // Section 1
-  const [variant, setVariant] = useState('streichquartett');
-  const [bookingDate, setBookingDate] = useState('');
+  const [availableEvents, setAvailableEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
   
   // Section 2
   const [partners, setPartners] = useState<{id: string, name: string, type: string}[]>([]);
@@ -35,7 +36,8 @@ export function BookingFlow() {
   
   // Section 4
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const derivedEventId = variant && bookingDate ? `${variant}_${bookingDate.replace(/-/g, '')}` : '';
+  const derivedEventId = selectedEventId;
+  const variant = selectedEventId.split('_')[0] || '';
 
   // Fix 1: Reset seats when event/date changes to prevent ghost bookings
   useEffect(() => {
@@ -76,14 +78,29 @@ export function BookingFlow() {
       }
     });
 
-    return () => unsubPricing();
+    // Fetch live Events
+    const unsubEvents = onSnapshot(query(collection(db, `apps/${APP_ID}/events`), orderBy('date', 'asc')), snap => {
+      const evts: Event[] = [];
+      const now = Date.now();
+      snap.forEach(d => {
+         const ev = { id: d.id, ...d.data() } as Event;
+         // Optional: filter past events
+         if (ev.date.toMillis() >= now) evts.push(ev);
+      });
+      setAvailableEvents(evts);
+    });
+
+    return () => {
+      unsubPricing();
+      unsubEvents();
+    };
   }, []);
 
   const totalPrice = (catA * priceCatA) + (catB * priceCatB) + (student * priceStudent);
   const totalTickets = catA + catB + student;
 
   const handleSubmit = async () => {
-    if (!bookingDate) return alert("Bitte wähle ein Datum aus.");
+    if (!selectedEventId) return alert("Bitte wähle ein Konzert aus.");
     if (totalTickets === 0) return alert("Bitte wähle mindestens ein Ticket aus der Kategorie aus.");
     if (selectedSeats.length !== totalTickets) return alert(`Bitte weise genau ${totalTickets} Sitzplätze im physischen Saalplan zu.`);
     if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
@@ -142,17 +159,21 @@ export function BookingFlow() {
           <CalendarDays className="w-6 h-6 text-brand-primary"/> 1. Event & Termin Option
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
            <div>
-             <label className="block text-sm font-bold text-gray-700 mb-2">Ensemble Variante (Line-Up)</label>
-             <select value={variant} onChange={e => setVariant(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-gray-50 text-gray-900 font-bold cursor-pointer transition-shadow shadow-inner">
-               <option value="streichquartett">🎻 Streichquartett (Mi, Fr, So, Sa)</option>
-               <option value="klaviertrio">🎹 Klaviertrio (Di, Do)</option>
+             <label className="block text-sm font-bold text-gray-700 mb-2">Konzert / Event auswählen</label>
+             <select 
+               value={selectedEventId} 
+               onChange={e => setSelectedEventId(e.target.value)} 
+               className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-gray-50 text-gray-900 font-bold cursor-pointer transition-shadow shadow-inner"
+             >
+               <option value="">-- Bitte wählen --</option>
+               {availableEvents.map(e => (
+                 <option key={e.id} value={e.id}>
+                   {e.date.toDate().toLocaleString('de-AT', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} Uhr — {e.title}
+                 </option>
+               ))}
              </select>
-           </div>
-           <div>
-             <label className="block text-sm font-bold text-gray-700 mb-2">Konzertdatum</label>
-             <input type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-gray-50 text-gray-900 font-bold shadow-inner" />
            </div>
         </div>
       </section>
@@ -294,9 +315,9 @@ export function BookingFlow() {
             <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
                👆 Bitte definieren Sie zuerst die Ticket-Anzahl in Sektion 3, um die Plätze physisch zuzuweisen.
             </div>
-          ) : !bookingDate ? (
+          ) : !selectedEventId ? (
             <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
-               👆 Bitte wählen Sie zuerst ein Konzertdatum in Sektion 1, um den tagesaktuellen Saalplan zu laden.
+               👆 Bitte wählen Sie zuerst ein Konzert aus Sektion 1, um den tagesaktuellen Saalplan zu laden.
             </div>
           ) : (
             <div className="overflow-hidden">
