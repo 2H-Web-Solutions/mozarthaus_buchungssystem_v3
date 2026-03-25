@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
 import { useNavigate } from 'react-router-dom';
-import { fetchPartners } from '../../services/partnerService';
 import { executeBookingTransaction } from '../../services/transactionService';
 import { SeatMap } from './SeatMap';
-import { Partner } from '../../types/schema';
 import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export function BookingFlow() {
@@ -16,7 +14,7 @@ export function BookingFlow() {
   const [bookingDate, setBookingDate] = useState('');
   
   // Section 2
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [partners, setPartners] = useState<{id: string, name: string, type: string}[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -52,7 +50,20 @@ export function BookingFlow() {
   }, [catA, catB, student, selectedSeats.length]);
 
   useEffect(() => {
-    fetchPartners().then(setPartners);
+    const fetchPartnersData = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, `apps/${APP_ID}/partners`));
+        const partnerData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || doc.data().companyName || 'Unbenannt',
+          type: doc.data().type || ''
+        }));
+        setPartners(partnerData);
+      } catch (error) {
+        console.error('Fehler beim Laden der Partner:', error);
+      }
+    };
+    fetchPartnersData();
     
     // Live stream master pricing configs
     const unsubPricing = onSnapshot(doc(db, `apps/${APP_ID}/config`, 'pricing'), (snap) => {
@@ -152,11 +163,22 @@ export function BookingFlow() {
         </h2>
         
         <div className="space-y-6">
-           <div>
-             <label className="block text-sm font-bold text-brand-primary mb-2">B2B Agentur / Partner (Optional für Kommission)</label>
-             <select value={selectedPartnerId} onChange={e => setSelectedPartnerId(e.target.value)} className="w-full p-4 border-2 border-brand-primary/20 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-blue-50 text-blue-900 font-bold cursor-pointer shadow-inner">
-               <option value="">-- Direktbuchung (B2C Konsument) --</option>
-               {partners.map(p => <option key={p.id} value={p.id}>{p.companyName} {p.commissionRate ? `(${p.commissionRate}% Provision)` : ''}</option>)}
+           {/* Partner Auswahl (B2B) */}
+           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+             <label className="block text-sm font-medium text-gray-700 mb-2">
+               B2B Partner (Optional)
+             </label>
+             <select
+               value={selectedPartnerId}
+               onChange={(e) => setSelectedPartnerId(e.target.value)}
+               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent"
+             >
+               <option value="">-- Kein Partner (Direktbuchung) --</option>
+               {partners.map(partner => (
+                 <option key={partner.id} value={partner.id}>
+                   {partner.name} {partner.type ? `(${partner.type})` : ''}
+                 </option>
+               ))}
              </select>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
