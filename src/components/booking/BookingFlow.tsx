@@ -38,6 +38,19 @@ export function BookingFlow() {
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const derivedEventId = variant && bookingDate ? `${variant}_${bookingDate.replace(/-/g, '')}` : '';
 
+  // Fix 1: Reset seats when event/date changes to prevent ghost bookings
+  useEffect(() => {
+    setSelectedSeats([]);
+  }, [derivedEventId]);
+
+  // Fix 2: Truncate seats if ticket count is reduced below selected seats
+  useEffect(() => {
+    const total = catA + catB + student;
+    if (selectedSeats.length > total) {
+      setSelectedSeats(prev => prev.slice(0, total));
+    }
+  }, [catA, catB, student, selectedSeats.length]);
+
   useEffect(() => {
     fetchPartners().then(setPartners);
     

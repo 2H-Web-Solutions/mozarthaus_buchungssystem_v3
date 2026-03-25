@@ -10,8 +10,6 @@ export function Sidebar() {
   const location = useLocation();
   const { isSyncing } = useN8nActions();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
-  const [caption, setCaption] = useState('Buchungssystem Mozarthaus');
-  const [fontSize, setFontSize] = useState('text-xl');
 
   useEffect(() => {
     const docRef = doc(db, `apps/${APP_ID}/settings`, 'general');
@@ -20,9 +18,6 @@ export function Sidebar() {
         const data = snap.data();
         if (data.logoBase64) setLogoBase64(data.logoBase64);
         else setLogoBase64(null);
-
-        if (data.sidebarCaption !== undefined) setCaption(data.sidebarCaption);
-        if (data.sidebarFontSize !== undefined) setFontSize(data.sidebarFontSize);
       } else {
         setLogoBase64(null);
       }
@@ -56,9 +51,6 @@ export function Sidebar() {
             MH
           </div>
         )}
-        <h1 className={`font-heading text-brand-primary ${fontSize} font-bold leading-tight`}>
-          {caption}
-        </h1>
       </div>
       
       <div className="border-t border-gray-400 mx-4"></div>
