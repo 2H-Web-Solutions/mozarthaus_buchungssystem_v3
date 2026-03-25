@@ -18,12 +18,13 @@ export function Dashboard() {
     const loadingToast = toast.loading('Synchronisation mit Regiondo läuft...');
     try {
       await fetch('http://up-seo-2025/webhook/sync-regiondo-events', {
-        method: 'GET'
+        method: 'GET',
+        mode: 'no-cors' // <-- Verhindert, dass der lokale Browser (CORS) den Request ohne Antwort blockiert
       });
-      toast.success('Synchronisation gestartet! Alle Termine werden per n8n-Abruf in Firebase geladen.', { id: loadingToast });
+      toast.success('Webhook an n8n gefeuert! Checke n8n oder Firestore für Updates.', { id: loadingToast });
     } catch (error) {
       console.error('Fehler beim n8n-Sync:', error);
-      toast.error('Sync fehlgeschlagen. Bitte prüfe, ob die n8n Instanz (up-seo-2025) erreichbar ist.', { id: loadingToast });
+      toast.error('Sync fehlgeschlagen. Nutzt du Vercel? Vercel (HTTPS) verbietet HTTP-Requests ins lokale Netzwerk!', { id: loadingToast });
     }
   };
 
