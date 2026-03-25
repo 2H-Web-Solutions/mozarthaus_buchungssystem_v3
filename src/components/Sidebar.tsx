@@ -36,7 +36,7 @@ export function Sidebar() {
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Neue Reservierung', path: '/new-booking', icon: Ticket },
     { name: 'Events / Termine', path: '/events', icon: CalendarDays },
-    { name: 'Kanban Board', path: '/kanban', icon: Columns },
+    { name: 'Status', path: '/kanban', icon: Columns },
     { name: 'Transaktions-Log', path: '/bookings', icon: Calendar },
     { name: 'Statistiken', path: '/statistics', icon: BarChart },
     { 

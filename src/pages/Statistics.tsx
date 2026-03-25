@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Booking, Event } from '../types/schema';
-import { BarChart, Ticket, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
+import { BarChart, Ticket, TrendingUp, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
 
 export function Statistics() {
   const now = new Date();
@@ -21,6 +21,13 @@ export function Statistics() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Filter States
+  const [partners, setPartners] = useState<{id: string, name: string, typeId?: string}[]>([]);
+  const [partnerTypes, setPartnerTypes] = useState<{id: string, name: string}[]>([]);
+  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
+  const [selectedPartnerTypes, setSelectedPartnerTypes] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     const unsubBookings = onSnapshot(query(collection(db, `apps/${APP_ID}/bookings`), orderBy('createdAt', 'desc')), snap => {
@@ -36,11 +43,36 @@ export function Statistics() {
       setLoading(false);
     });
 
+    const fetchFilterData = async () => {
+      try {
+        const pSnap = await getDocs(collection(db, `apps/${APP_ID}/partners`));
+        const ptSnap = await getDocs(collection(db, `apps/${APP_ID}/partner_types`));
+        setPartners(pSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+        setPartnerTypes(ptSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+      } catch (error) {
+        console.error("Fehler beim Laden der Filterdaten:", error);
+      }
+    };
+    fetchFilterData();
+
     return () => {
       unsubBookings();
       unsubEvents();
     };
   }, []);
+
+  const parseEventDate = (dateVal: any) => {
+      if (!dateVal) return new Date(0);
+      if (dateVal.toDate) return dateVal.toDate();
+      if (typeof dateVal === 'string') {
+          if (dateVal.includes('.')) {
+              const [d, m, y] = dateVal.split('.');
+              return new Date(`${y}-${m}-${d}T00:00:00`);
+          }
+          return new Date(dateVal);
+      }
+      return new Date(0);
+  };
 
   const { filteredBookings, totalRevenue, paidRevenue, totalTickets, occupancyRate } = useMemo(() => {
     const start = new Date(startDate);
@@ -49,12 +81,34 @@ export function Statistics() {
     end.setHours(23, 59, 59, 999);
 
     const validEvents = events.filter(e => {
-        const d = typeof e.date === 'string' ? new Date(e.date) : e.date.toDate();
+        const d = parseEventDate(e.date);
         return d >= start && d <= end;
     });
     const validEventIds = validEvents.map(e => e.id);
 
-    let fBookings = bookings.filter(b => validEventIds.includes(b.eventId));
+    let fBookings = bookings.filter(b => {
+        let isDateValid = false;
+        if (b.eventId === 'manual') {
+            const bDate = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
+            isDateValid = bDate >= start && bDate <= end;
+        } else {
+            isDateValid = validEventIds.includes(b.eventId);
+        }
+        if (!isDateValid) return false;
+
+        if (selectedPartners.length > 0) {
+            const bPartnerId = b.partnerId || 'direct';
+            if (!selectedPartners.includes(bPartnerId)) return false;
+        }
+
+        if (selectedPartnerTypes.length > 0) {
+            const partner = partners.find(p => p.id === b.partnerId);
+            const pType = partner?.typeId || 'none';
+            if (!selectedPartnerTypes.includes(pType)) return false;
+        }
+
+        return true;
+    });
     
     let tRevenue = 0;
     let pRevenue = 0;
@@ -80,26 +134,20 @@ export function Statistics() {
        if (b.eventId !== 'manual') {
          const e = events.find(ev => ev.id === b.eventId);
          if (e && e.date) {
-           if ((e.date as any)?.toDate) { // Check if it's a Firestore Timestamp
-             const d = (e.date as any).toDate();
-             resolvedEventDateObject = d;
-             resolvedEventDateString = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
-           } else { // Assume it's a string date
-             const d = new Date(e.date as string);
-             resolvedEventDateObject = d;
-             resolvedEventDateString = `${d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${e.time || ''}`;
-           }
+           const d = parseEventDate(e.date);
+           resolvedEventDateObject = d;
+           resolvedEventDateString = `${d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${e.time || ''}`;
          }
        } else {
-         const createdDate = b.createdAt.toDate();
+         const createdDate = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
          resolvedEventDateObject = createdDate;
          resolvedEventDateString = createdDate.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + createdDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
        }
 
        return {
            ...b,
-           resolvedEventDate: resolvedEventDateObject, // Keep Date object for sorting
-           resolvedEventDateString: resolvedEventDateString // Add formatted string for display
+           resolvedEventDate: resolvedEventDateObject,
+           resolvedEventDateString: resolvedEventDateString
        };
     }).sort((a, b) => (b.resolvedEventDate?.getTime() || 0) - (a.resolvedEventDate?.getTime() || 0));
 
@@ -110,34 +158,83 @@ export function Statistics() {
       totalTickets: tTickets,
       occupancyRate: occRate
     };
-  }, [startDate, endDate, bookings, events]);
+  }, [startDate, endDate, bookings, events, selectedPartners, selectedPartnerTypes, partners]);
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Lade Statistiken...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500 font-bold animate-pulse">Lade Statistiken...</div>;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-3xl font-heading text-brand-primary font-bold">Statistiken & Übersicht</h1>
-          <p className="text-gray-500 mt-1">Auswertung Ihrer Verkäufe & Auslastung nach Event-Zeitraum</p>
+          <p className="text-gray-500 mt-1 font-medium">Auswertung Ihrer Verkäufe & Auslastung nach Event-Zeitraum</p>
         </div>
-        <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
-          <CalendarIcon className="w-5 h-5 text-gray-400 ml-2" />
-          <input 
-            type="date" 
-            value={startDate} 
-            onChange={e => setStartDate(e.target.value)}
-            className="bg-transparent border-none font-medium text-gray-700 focus:ring-0 outline-none cursor-pointer"
-          />
-          <span className="text-gray-400">-</span>
-          <input 
-            type="date" 
-            value={endDate} 
-            onChange={e => setEndDate(e.target.value)}
-            className="bg-transparent border-none font-medium text-gray-700 focus:ring-0 outline-none cursor-pointer"
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-colors border ${showFilters || selectedPartners.length > 0 || selectedPartnerTypes.length > 0 ? 'bg-brand-primary text-white border-brand-primary shadow-md' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filter {(selectedPartners.length > 0 || selectedPartnerTypes.length > 0) && `(${(selectedPartners.length > 0 ? 1 : 0) + (selectedPartnerTypes.length > 0 ? 1 : 0)})`}
+          </button>
+          <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+            <CalendarIcon className="w-5 h-5 text-gray-400 ml-2" />
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)}
+              className="bg-transparent border-none font-bold text-gray-700 focus:ring-0 outline-none cursor-pointer"
+            />
+            <span className="text-gray-400 font-bold">-</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)}
+              className="bg-transparent border-none font-bold text-gray-700 focus:ring-0 outline-none cursor-pointer"
+            />
+          </div>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6 animate-in slide-in-from-top-2">
+          <div className="flex-1">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Nach Partner filtern</label>
+            <select 
+              multiple 
+              className="w-full p-3 border border-gray-200 rounded-xl text-sm h-32 focus:ring-2 focus:ring-brand-primary outline-none font-medium bg-gray-50"
+              value={selectedPartners}
+              onChange={(e) => setSelectedPartners(Array.from(e.target.selectedOptions, option => option.value))}
+            >
+              <option value="direct" className="p-1">Direktbuchungen (Kein Partner)</option>
+              {partners.map(p => <option key={p.id} value={p.id} className="p-1">{p.name}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-2 font-medium">Strg/Cmd gedrückt halten für Mehrfachauswahl</p>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Nach Partner-Typ filtern</label>
+            <select 
+              multiple 
+              className="w-full p-3 border border-gray-200 rounded-xl text-sm h-32 focus:ring-2 focus:ring-brand-primary outline-none font-medium bg-gray-50"
+              value={selectedPartnerTypes}
+              onChange={(e) => setSelectedPartnerTypes(Array.from(e.target.selectedOptions, option => option.value))}
+            >
+              <option value="none" className="p-1">Ohne Typ</option>
+              {partnerTypes.map(pt => <option key={pt.id} value={pt.id} className="p-1">{pt.name}</option>)}
+            </select>
+          </div>
+          {(selectedPartners.length > 0 || selectedPartnerTypes.length > 0) && (
+            <div className="flex items-end pb-6">
+              <button 
+                onClick={() => { setSelectedPartners([]); setSelectedPartnerTypes([]); }}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors border border-red-100"
+              >
+                <X className="w-4 h-4" /> Filter zurücksetzen
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
@@ -150,7 +247,7 @@ export function Statistics() {
           </div>
           <div className="relative z-10">
              <div className="text-4xl font-heading font-black text-gray-900 mb-2">€ {totalRevenue.toLocaleString('de-AT', {minimumFractionDigits: 2})}</div>
-             <div className="text-sm font-medium text-green-600 bg-green-50 w-max px-2 py-1 rounded">
+             <div className="text-sm font-bold text-green-600 bg-green-50 w-max px-3 py-1 rounded-lg border border-green-100">
                 Davon bezahlt: € {paidRevenue.toLocaleString('de-AT', {minimumFractionDigits: 2})}
              </div>
           </div>
@@ -166,7 +263,7 @@ export function Statistics() {
           </div>
           <div className="relative z-10">
              <div className="text-4xl font-heading font-black text-gray-900 mb-2">{totalTickets}</div>
-             <div className="text-sm font-medium text-gray-500">
+             <div className="text-sm font-bold text-gray-500 bg-gray-50 w-max px-3 py-1 rounded-lg border border-gray-100">
                 Im gewählten Zeitraum
              </div>
           </div>
@@ -182,23 +279,24 @@ export function Statistics() {
           </div>
           <div className="relative z-10">
              <div className="text-4xl font-heading font-black text-brand-primary mb-4">{occupancyRate}%</div>
-             <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                <div className="bg-brand-primary h-2.5 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, occupancyRate)}%` }}></div>
+             <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner">
+                <div className="bg-brand-primary h-3 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, occupancyRate)}%` }}></div>
              </div>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
            <h2 className="text-lg font-bold text-gray-900">Transaktionen im Zeitraum</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
+              <tr className="bg-white text-gray-400 text-xs uppercase tracking-wider border-b border-gray-100">
                 <th className="p-4 font-bold">Kunde / Name</th>
                 <th className="p-4 font-bold">Event-Datum</th>
+                <th className="p-4 font-bold">Partner</th>
                 <th className="p-4 font-bold">Tickets</th>
                 <th className="p-4 font-bold">Status</th>
                 <th className="p-4 font-bold text-right">Summe</th>
@@ -207,39 +305,47 @@ export function Statistics() {
             <tbody>
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-gray-500 text-sm">
-                    Keine Buchungen für diesen Zeitraum gefunden.
+                  <td colSpan={6} className="p-12 text-center text-gray-500 font-medium">
+                    Keine Buchungen für diesen Zeitraum und diese Filter gefunden.
                   </td>
                 </tr>
               ) : (
-                filteredBookings.map(b => (
-                  <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-gray-900">{b.customerData.name}</div>
-                      <div className="text-sm text-gray-500">{b.customerData.email}</div>
-                      {b.isB2B && <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded">B2B</span>}
-                    </td>
-                    <td className="p-4 text-gray-600 font-medium">
-                      {b.resolvedEventDate?.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </td>
-                    <td className="p-4 text-gray-600 font-medium">
-                       {b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + t.quantity, 0) || 0)} Plätze
-                    </td>
-                    <td className="p-4">
-                       <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                         b.status === 'paid' ? 'bg-green-100 text-green-700' :
-                         b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                         b.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                         'bg-yellow-100 text-yellow-700'
-                       }`}>
-                         {b.status.toUpperCase()}
-                       </span>
-                    </td>
-                    <td className="p-4 text-right font-bold text-gray-900">
-                      € {b.totalAmount?.toLocaleString('de-AT', {minimumFractionDigits: 2})}
-                    </td>
-                  </tr>
-                ))
+                filteredBookings.map(b => {
+                  const partnerName = b.partnerId ? partners.find(p => p.id === b.partnerId)?.name : 'Direkt';
+                  return (
+                    <tr key={b.id} className="border-b border-gray-50 hover:bg-red-50/30 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-900 text-base">{b.customerData.name}</div>
+                        <div className="text-sm text-gray-500 font-medium">{b.customerData.email}</div>
+                        {b.isB2B && <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider rounded">B2B</span>}
+                      </td>
+                      <td className="p-4 text-gray-700 font-bold">
+                        {b.resolvedEventDateString}
+                      </td>
+                      <td className="p-4">
+                        <span className="text-sm font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+                          {partnerName || 'Unbekannt'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-gray-700 font-bold">
+                         {b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + t.quantity, 0) || 0)} Plätze
+                      </td>
+                      <td className="p-4">
+                         <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
+                           b.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' :
+                           b.status === 'confirmed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                           b.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                           'bg-yellow-50 text-yellow-700 border-yellow-200'
+                         }`}>
+                           {b.status}
+                         </span>
+                      </td>
+                      <td className="p-4 text-right font-black text-gray-900 text-lg">
+                        € {b.totalAmount?.toLocaleString('de-AT', {minimumFractionDigits: 2})}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

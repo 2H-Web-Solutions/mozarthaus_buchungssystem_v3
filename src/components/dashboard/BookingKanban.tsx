@@ -154,7 +154,7 @@ export function BookingKanban() {
              <LayoutDashboard className="w-7 h-7 text-brand-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-heading text-brand-primary font-bold leading-tight">Live Kanban</h1>
+            <h1 className="text-3xl font-heading text-brand-primary font-bold leading-tight">Live Status</h1>
             <p className="text-gray-500 text-base font-medium mt-1">Statusüberwachung, Stornierungen & Zahlungsverwaltung</p>
           </div>
         </div>
