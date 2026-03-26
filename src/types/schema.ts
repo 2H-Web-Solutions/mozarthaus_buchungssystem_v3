@@ -4,6 +4,7 @@ export interface EventEnsembleMember {
   musikerId: string;
   name: string;
   instrument: string;
+  gage?: number;
   status: 'angefragt' | 'bestätigt' | 'abgesagt';
 }
 
@@ -36,6 +37,7 @@ export interface Booking {
   paymentMethod?: 'bar' | 'karte' | 'voucher' | 'rechnung';
   seatIds?: string[];
   tickets?: { seatId?: string, categoryId: string, quantity?: number, price?: number }[];
+  checkedInSeats?: string[]; // Specifically for Abendkasse per-seat tracking
   customerData: {
     name: string;
     email: string;
@@ -54,4 +56,13 @@ export interface Partner {
   contactPerson: string;
   email: string;
   commissionRate?: number;
+}
+
+export interface TicketCategory {
+  id: string; // e.g., 'cat_a', 'cat_b', 'student'
+  name: string; // e.g., 'Kategorie A'
+  price: number; 
+  colorCode: string; // Hex color
+  isActive: boolean;
+  description?: string;
 }

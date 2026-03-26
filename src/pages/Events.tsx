@@ -147,8 +147,14 @@ export function Events() {
                  <td className="p-4">
                    <EventOccupancy eventId={evt.id} />
                  </td>
-                 <td className="p-4 text-right text-brand-primary text-sm font-medium">
-                   Saalplan öffnen &rarr;
+                 <td className="p-4 text-right flex items-center justify-end gap-3 text-sm font-medium">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); navigate(`/events/${evt.id}/belegungsplan`); }}
+                     className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors border border-gray-200"
+                   >
+                     Belegungsplan
+                   </button>
+                   <span className="text-brand-primary">Saalplan öffnen &rarr;</span>
                  </td>
                </tr>
              ))}

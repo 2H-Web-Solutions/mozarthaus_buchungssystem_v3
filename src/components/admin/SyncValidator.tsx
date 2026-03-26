@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
-import { Activity, Zap, Clock } from 'lucide-react';
+import { Activity, Zap, Clock, TicketCheck } from 'lucide-react';
+import { executeBookingTransaction } from '../../services/transactionService';
+import toast from 'react-hot-toast';
 
 export function SyncValidator() {
   const [latency, setLatency] = useState<number | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [lastPingSent, setLastPingSent] = useState<number>(0);
   const [statusColor, setStatusColor] = useState<'green' | 'yellow' | 'red' | 'gray'>('gray');
+  const [isBookingTesting, setIsBookingTesting] = useState(false);
 
   // Listen to returning Real-time Pings
   useEffect(() => {
@@ -53,6 +56,32 @@ export function SyncValidator() {
       console.error(err);
       setIsTesting(false);
       setStatusColor('red');
+    }
+  };
+
+  const runBookingTest = async () => {
+    setIsBookingTesting(true);
+    try {
+      // Mock booking payload for Smoke Testing
+      await executeBookingTransaction({
+        eventId: 'test_event_' + Date.now(),
+        variantId: 'smoke_test',
+        eventTitle: 'System Smoke Test Event',
+        eventDate: new Date().toISOString(),
+        partnerId: null,
+        isB2B: false,
+        source: 'manual',
+        status: 'pending',
+        tickets: [{ categoryId: 'cat_a', quantity: 1 }],
+        customerData: { name: 'Smoke Test User', email: 'test@mozarthaus.at' },
+        totalAmount: 1
+      }, ['test_row_1_seat_1']);
+      toast.success('Buchungslogik (Transaction) erfolgreich verifiziert!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Buchungslogik-Test fehlgeschlagen: ' + err.message);
+    } finally {
+      setIsBookingTesting(false);
     }
   };
 
@@ -103,10 +132,19 @@ export function SyncValidator() {
 
         <button 
           onClick={runPingTest}
-          disabled={isTesting}
-          className="w-full py-4 bg-gray-900 hover:bg-black text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl shadow-black/10"
+          disabled={isTesting || isBookingTesting}
+          className="w-full py-4 bg-gray-900 hover:bg-black text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl shadow-black/10 mb-4"
         >
           {isTesting ? 'Sende Ping...' : 'Latenz Test Starten'}
+        </button>
+
+        <button 
+          onClick={runBookingTest}
+          disabled={isTesting || isBookingTesting}
+          className="w-full py-4 bg-white border-2 border-brand-primary text-brand-primary hover:bg-red-50 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <TicketCheck className="w-5 h-5" />
+          {isBookingTesting ? 'Simuliere Buchung...' : 'Buchungs-Transaktion Testen'}
         </button>
       </div>
     </div>

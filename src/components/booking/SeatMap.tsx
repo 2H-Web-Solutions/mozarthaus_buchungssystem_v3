@@ -7,15 +7,22 @@ import { SEATING_PLAN_TEMPLATE } from '../../config/seatingPlan';
 import { initializeEventSeats } from '../../services/bookingService';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+export interface CategoryAllocation {
+  id: string;
+  name: string;
+  quantity: number;
+  colorCode: string;
+}
+
 interface SeatMapProps {
   eventId: string;
   requiredSeats: number;
   selectedSeats: string[];
   onSeatSelect: (seatIds: string[]) => void;
-  catCounts: { catA: number; catB: number; student: number };
+  categoryAllocations: CategoryAllocation[];
 }
 
-export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, catCounts }: SeatMapProps) {
+export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, categoryAllocations }: SeatMapProps) {
   const [seats, setSeats] = useState<Record<string, Seat>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -80,12 +87,23 @@ export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, c
   // Warning when constraints strictly block progression
   const seatsMissing = requiredSeats - selectedSeats.length;
 
-  const getSeatColor = (seatId: string) => {
+  const getSeatColorStyle = (seatId: string) => {
     const index = selectedSeats.indexOf(seatId);
-    if (index === -1) return null;
-    if (index < catCounts.catA) return 'bg-amber-500 ring-amber-500/50';
-    if (index < catCounts.catA + catCounts.catB) return 'bg-blue-500 ring-blue-500/50';
-    return 'bg-emerald-500 ring-emerald-500/50';
+    if (index === -1) return {};
+    
+    let cumsum = 0;
+    for (const alloc of categoryAllocations) {
+      if (index < cumsum + alloc.quantity) {
+        return { 
+          backgroundColor: alloc.colorCode, 
+          // Approximate a ring by using a spread boxShadow with 50% opacity mapping (using simple hex append or generic shadow if needed)
+          // Since we might have arbitrary hex without alpha support natively easily, just give it a rigid rim:
+          boxShadow: `0 0 0 2px ${alloc.colorCode}66`
+        };
+      }
+      cumsum += alloc.quantity;
+    }
+    return { backgroundColor: '#10b981', boxShadow: `0 0 0 2px #10b98166` }; // Backup fallback
   };
 
   return (
@@ -125,9 +143,11 @@ export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, c
                     // Strict UI Twin-Toggling logic
                     let btnClass = "w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ";
                     
+                    let btnStyle = {};
+                    
                     if (isSelected) {
-                      const colorClass = getSeatColor(s.id);
-                      btnClass += `${colorClass} text-white shadow-lg ring-2 transform scale-110`;
+                      btnStyle = getSeatColorStyle(s.id);
+                      btnClass += `text-white shadow-lg transform scale-110`;
                     } else if (isAvailable) {
                       btnClass += "bg-white border-2 border-gray-300 text-gray-700 hover:border-brand-primary hover:text-brand-primary cursor-pointer active:scale-95";
                     } else {
@@ -140,6 +160,7 @@ export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, c
                         onClick={() => handleSeatClick(s.id)}
                         disabled={!isAvailable}
                         className={btnClass}
+                        style={btnStyle}
                         title={`Reihe ${rowConfig.rowId} Platz ${s.number} (${seatData.status})`}
                       >
                         {s.number}
@@ -154,9 +175,12 @@ export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, c
           </div>
           <div className="mt-8 pt-4 border-t border-gray-200 flex justify-center gap-6 text-sm font-medium text-gray-600 flex-wrap">
             <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border-2 border-gray-300 bg-white"></div> Frei</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-amber-500 shadow-sm ring-2 ring-amber-500/30"></div> Kat A</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-blue-500 shadow-sm ring-2 ring-blue-500/30"></div> Kat B</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm ring-2 ring-emerald-500/30"></div> Student</div>
+            {categoryAllocations.filter(c => c.quantity > 0).map(c => (
+               <div key={c.id} className="flex items-center gap-2">
+                 <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: c.colorCode }}></div>
+                 {c.name}
+               </div>
+            ))}
             <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-gray-200 border border-gray-300 opacity-60"></div> Gesperrt</div>
           </div>
         </div>

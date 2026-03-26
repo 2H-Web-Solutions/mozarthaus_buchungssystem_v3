@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { SEATING_PLAN_TEMPLATE } from '../config/seatingPlan';
 import { Booking, Seat } from '../types/schema';
+import { sendBookingConfirmation } from './firebase/mailService';
 
 const getAppPath = () => `apps/${APP_ID}`;
 
@@ -81,9 +82,15 @@ export async function createBooking(
         createdAt: Timestamp.now()
       };
       
+      
       transaction.set(bookingRef, newBooking);
     });
     
+    // Asynchronous trigger for email confirmation
+    sendBookingConfirmation(bookingId).catch(e => {
+      console.error('Mail confirmation trigger failed silently: ', e);
+    });
+
     return bookingId;
   } catch (error) {
     console.error('Transaction failed: ', error);
@@ -161,6 +168,12 @@ export async function createVariantBooking(bookingData: Omit<Booking, 'id' | 'cr
        };
        transaction.set(bookingRef, newBooking);
     });
+
+    // Asynchronous trigger for email confirmation
+    sendBookingConfirmation(bookingId).catch(e => {
+      console.error('Mail confirmation trigger failed silently: ', e);
+    });
+
     return bookingId;
   } catch (error) {
     console.error('Variant booking transaction failed: ', error);

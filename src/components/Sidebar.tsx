@@ -56,7 +56,8 @@ export function Sidebar() {
       subItems: [
         { name: 'Partner', path: '/stammdaten/partner' },
         { name: 'Partner Typen', path: '/stammdaten/partner-types' },
-        { name: 'Musiker', path: '/stammdaten/musiker' }
+        { name: 'Musiker', path: '/stammdaten/musiker' },
+        { name: 'Preise & Kategorien', path: '/stammdaten/pricing' }
       ]
     },
     // { name: 'Tasks', path: '/tasks', icon: undefined }, // Hidden for now

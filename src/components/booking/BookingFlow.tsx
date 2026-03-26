@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
 import { useNavigate } from 'react-router-dom';
 import { executeBookingTransaction } from '../../services/transactionService';
-import { Event } from '../../types/schema';
+import { Event, TicketCategory } from '../../types/schema';
+import { listenTicketCategories } from '../../services/firebase/pricingService';
 import { SeatMap } from './SeatMap';
 import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -21,14 +22,8 @@ export function BookingFlow() {
   const [customerEmail, setCustomerEmail] = useState('');
   
   // Section 3
-  const [catA, setCatA] = useState(0); 
-  const [catB, setCatB] = useState(0); 
-  const [student, setStudent] = useState(0); 
-  
-  // Realtime Pricing State
-  const [priceCatA, setPriceCatA] = useState(69);
-  const [priceCatB, setPriceCatB] = useState(59);
-  const [priceStudent, setPriceStudent] = useState(42);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -46,12 +41,14 @@ export function BookingFlow() {
 
   // Fix 2: Truncate seats if ticket count is reduced below selected seats
   useEffect(() => {
-    const total = catA + catB + student;
+    let total = 0;
+    Object.values(quantities).forEach(q => total += q);
+    
     if (selectedSeats.length > total) {
       setSelectedSeats(prev => prev.slice(0, total));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catA, catB, student]);
+  }, [quantities]);
 
   useEffect(() => {
     const fetchPartnersData = async () => {
@@ -70,13 +67,8 @@ export function BookingFlow() {
     fetchPartnersData();
     
     // Live stream master pricing configs
-    const unsubPricing = onSnapshot(doc(db, `apps/${APP_ID}/config`, 'pricing'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.catA !== undefined) setPriceCatA(data.catA);
-        if (data.catB !== undefined) setPriceCatB(data.catB);
-        if (data.student !== undefined) setPriceStudent(data.student);
-      }
+    const unsubPricing = listenTicketCategories(cats => {
+      setCategories(cats.filter(c => c.isActive).sort((a,b) => b.price - a.price)); // Highest price first
     });
 
     // Fetch live Events
@@ -104,8 +96,20 @@ export function BookingFlow() {
     };
   }, []);
 
-  const totalPrice = (catA * priceCatA) + (catB * priceCatB) + (student * priceStudent);
-  const totalTickets = catA + catB + student;
+  let totalPrice = 0;
+  let totalTickets = 0;
+  categories.forEach(c => {
+    const q = quantities[c.id] || 0;
+    totalPrice += q * c.price;
+    totalTickets += q;
+  });
+
+  const categoryAllocations = categories.map(c => ({
+    id: c.id,
+    name: c.name,
+    quantity: quantities[c.id] || 0,
+    colorCode: c.colorCode
+  }));
 
   const handleSubmit = async () => {
     if (!selectedEventId) return alert("Bitte wähle ein Konzert aus.");
@@ -115,10 +119,9 @@ export function BookingFlow() {
 
     setIsSubmitting(true);
     try {
-      const tickets = [];
-      if (catA > 0) tickets.push({ categoryId: 'cat_a', quantity: catA });
-      if (catB > 0) tickets.push({ categoryId: 'cat_b', quantity: catB });
-      if (student > 0) tickets.push({ categoryId: 'student', quantity: student });
+      const tickets = categories
+        .filter(c => (quantities[c.id] || 0) > 0)
+        .map(c => ({ categoryId: c.id, quantity: quantities[c.id] }));
 
       const selectedEvent = availableEvents.find(e => e.id === selectedEventId);
 
@@ -278,58 +281,27 @@ export function BookingFlow() {
         <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
         <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
           <Ticket className="w-6 h-6 text-emerald-500"/> 3. Kontingente & Tickets
-        </h2>
-        
-        <div className="grid grid-cols-1 items-stretch md:grid-cols-3 gap-6 mb-10">
-           {/* Cat A */}
-           <div className="p-6 border border-gray-200 rounded-2xl bg-gray-50 flex flex-col items-center justify-between shadow-sm">
-             <div className="text-center mb-6">
-                <span className="block text-xl font-bold text-gray-900 mb-1">
-                  <div className="w-4 h-4 rounded-full bg-amber-500 shadow-sm inline-block mr-2"></div>
-                  Kategorie A
-                </span>
-                <span className="block text-sm text-gray-500 font-medium">{priceCatA.toFixed(2)} € pro Ticket</span>
+        </h2>         <div className="grid grid-cols-1 items-stretch md:grid-cols-3 gap-6 mb-10">
+           {categories.map((cat) => (
+             <div key={cat.id} className="p-6 border border-gray-200 rounded-2xl bg-gray-50 flex flex-col items-center justify-between shadow-sm">
+               <div className="text-center mb-6">
+                  <span className="block text-xl font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: cat.colorCode }}></div>
+                    {cat.name}
+                  </span>
+                  <span className="block text-sm text-gray-500 font-medium">{cat.price.toFixed(2)} € pro Ticket</span>
+               </div>
+               <div className="flex items-center gap-5">
+                 <button onClick={() => setQuantities(prev => ({ ...prev, [cat.id]: Math.max(0, (prev[cat.id] || 0) - 1)}))} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">-</button>
+                 <span className="text-3xl font-heading font-bold w-10 text-center text-brand-primary">{quantities[cat.id] || 0}</span>
+                 <button onClick={() => setQuantities(prev => ({ ...prev, [cat.id]: (prev[cat.id] || 0) + 1}))} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">+</button>
+               </div>
              </div>
-             <div className="flex items-center gap-5">
-               <button onClick={() => setCatA(Math.max(0, catA - 1))} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">-</button>
-               <span className="text-3xl font-heading font-bold w-10 text-center text-brand-primary">{catA}</span>
-               <button onClick={() => setCatA(catA + 1)} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">+</button>
-             </div>
-           </div>
-
-           {/* Cat B */}
-           <div className="p-6 border border-gray-200 rounded-2xl bg-gray-50 flex flex-col items-center justify-between shadow-sm">
-             <div className="text-center mb-6">
-                <span className="block text-xl font-bold text-gray-900 mb-1">
-                  <div className="w-4 h-4 rounded-full bg-blue-500 shadow-sm inline-block mr-2"></div>
-                  Kategorie B
-                </span>
-                <span className="block text-sm text-gray-500 font-medium">{priceCatB.toFixed(2)} € pro Ticket</span>
-             </div>
-             <div className="flex items-center gap-5">
-               <button onClick={() => setCatB(Math.max(0, catB - 1))} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">-</button>
-               <span className="text-3xl font-heading font-bold w-10 text-center text-brand-primary">{catB}</span>
-               <button onClick={() => setCatB(catB + 1)} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">+</button>
-             </div>
-           </div>
-
-           {/* Student */}
-           <div className="p-6 border border-gray-200 rounded-2xl bg-gray-50 flex flex-col items-center justify-between shadow-sm">
-             <div className="text-center mb-6">
-                <span className="block text-xl font-bold text-gray-900 mb-1">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm inline-block mr-2"></div>
-                  Student
-                </span>
-                <span className="block text-sm text-gray-500 font-medium">{priceStudent.toFixed(2)} € pro Ticket</span>
-             </div>
-             <div className="flex items-center gap-5">
-               <button onClick={() => setStudent(Math.max(0, student - 1))} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">-</button>
-               <span className="text-3xl font-heading font-bold w-10 text-center text-brand-primary">{student}</span>
-               <button onClick={() => setStudent(student + 1)} className="w-12 h-12 rounded-full bg-white border border-gray-300 flex items-center justify-center font-bold text-2xl hover:bg-gray-100 shadow-sm active:scale-95 transition-transform">+</button>
-             </div>
-           </div>
-        </div>
-
+           ))}
+           {categories.length === 0 && (
+             <div className="col-span-1 md:col-span-3 p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">Es sind noch keine Ticket-Kategorien angelegt (Stammdaten).</div>
+           )}
+         </div> 
         {/* Sektion 4: Saalplan */}
         <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
@@ -352,7 +324,7 @@ export function BookingFlow() {
                  requiredSeats={totalTickets}
                  selectedSeats={selectedSeats}
                  onSeatSelect={setSelectedSeats}
-                 catCounts={{ catA, catB, student }}
+                 categoryAllocations={categoryAllocations}
                />
             </div>
           )}

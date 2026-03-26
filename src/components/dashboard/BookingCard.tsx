@@ -1,10 +1,24 @@
 import { Draggable } from '@hello-pangea/dnd';
 import { Booking } from '../../types/schema';
-import { Copy, Calendar, User, Ticket } from 'lucide-react';
+import { Copy, Calendar, User, Ticket, Mail } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { sendBookingConfirmation } from '../../services/firebase/mailService';
 
 export function BookingCard({ booking, index, partners }: { booking: Booking; index: number; partners?: {id: string, name: string}[] }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(booking.id);
+  };
+
+  const handleResendMail = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toast.promise(
+      sendBookingConfirmation(booking.id),
+      {
+         loading: 'Sende Ticket...',
+         success: 'E-Mail erfolgreich versendet!',
+         error: 'Fehler beim Senden',
+      }
+    );
   };
   
   const totalTickets = booking.tickets 
@@ -33,13 +47,22 @@ export function BookingCard({ booking, index, partners }: { booking: Booking; in
               <Copy className="w-3 h-3 group-hover:scale-110 transition-transform" />
             </button>
             
-            <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full font-bold ${
-              booking.status === 'paid' ? 'bg-green-100 text-green-700' : 
-              booking.status === 'cancelled' ? 'bg-gray-100 text-gray-600' : 
-              'bg-blue-100 text-blue-700'
-            }`}>
-              {booking.status === 'paid' && booking.paymentMethod ? booking.paymentMethod : '€ ' + booking.totalAmount.toFixed(2)}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleResendMail}
+                title="Bestätigung erneut senden"
+                className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+              </button>
+              <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full font-bold ${
+                booking.status === 'paid' ? 'bg-green-100 text-green-700' : 
+                booking.status === 'cancelled' ? 'bg-gray-100 text-gray-600' : 
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {booking.status === 'paid' && booking.paymentMethod ? booking.paymentMethod : '€ ' + booking.totalAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
 
           <div className="font-bold text-gray-900 flex items-center justify-between gap-2 mb-1 text-sm tracking-tight" title={booking.customerData.name}>

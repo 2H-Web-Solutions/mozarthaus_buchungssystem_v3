@@ -1,23 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // 1. Standard App Rules (Development Mode)
-    // Temporär auf "true" gesetzt, damit das Buchungssystem ohne Login speichern kann.
-    match /apps/{appId}/{document=**} {
-      allow read, write: if true;
+    // Beschränke alles auf den Projekt-Scope
+    match /apps/mozarthaus_new_buchungssystem_mozarthaus_v1/{document=**} {
+      // Für den MVP/Build-Status: Erlaube Lese-/Schreibzugriff (später durch Auth ersetzen)
+      allow read, write: if true; 
     }
-
-    // 2. Public Reports
-    match /apps/{appId}/public_reports/{reportId} {
-      allow read: if true;
-      allow write: if true;
+    // Verbiete Zugriff auf alles außerhalb des Scopes
+    match /{document=**} {
+      allow read, write: if false;
     }
-
-    // 3. GLOBAL ACCESS (Collection Group Queries)
-    match /{path=**}/{collectionName}/{docId} {
-      allow read, write: if true;
-    }
-    
   }
 }

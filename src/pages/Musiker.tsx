@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
-import { createMusiker, deleteMusiker, type Musiker } from '../services/firebase/musikerService';
+import { createMusiker, deleteMusiker, type Musiker as MusikerType } from '../services/firebase/musikerService';
 import { Plus, User, Trash2, Edit2 } from 'lucide-react';
 
 export function Musiker() {
-  const [musikerList, setMusikerList] = useState<Musiker[]>([]);
+  const [musikerList, setMusikerList] = useState<MusikerType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -26,8 +26,8 @@ export function Musiker() {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, `apps/${APP_ID}/musiker`), snap => {
-      const list: Musiker[] = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() } as Musiker));
+      const list: MusikerType[] = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() } as MusikerType));
       // Sortieren nach Nachname
       list.sort((a, b) => a.nachname.localeCompare(b.nachname));
       setMusikerList(list);
@@ -55,7 +55,7 @@ export function Musiker() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (m: Musiker) => {
+  const openEditModal = (m: MusikerType) => {
     setEditingId(m.id);
     setArt(m.art);
     setInstrument(m.instrument || '');

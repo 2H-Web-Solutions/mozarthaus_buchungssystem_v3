@@ -15,11 +15,7 @@ export function Settings() {
   const [fontSize, setFontSize] = useState('text-xl');
   const [isSavingTexts, setIsSavingTexts] = useState(false);
 
-  // Pricing Model
-  const [priceCatA, setPriceCatA] = useState(69);
-  const [priceCatB, setPriceCatB] = useState(59);
-  const [priceStudent, setPriceStudent] = useState(42);
-  const [isSavingPricing, setIsSavingPricing] = useState(false);
+
 
   useEffect(() => {
     // Note: Can split this to different docs, grouping visually for MVP.
@@ -33,16 +29,7 @@ export function Settings() {
       }
     });
 
-    const unsubPricing = onSnapshot(doc(db, `apps/${APP_ID}/config`, 'pricing'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.catA !== undefined) setPriceCatA(data.catA);
-        if (data.catB !== undefined) setPriceCatB(data.catB);
-        if (data.student !== undefined) setPriceStudent(data.student);
-      }
-    });
-    
-    return () => { unsubGen(); unsubPricing(); };
+    return () => unsubGen();
   }, []);
 
   const handleLogoUpload = async (base64: string) => {
@@ -62,16 +49,6 @@ export function Settings() {
     setTimeout(() => setIsSavingTexts(false), 1000);
   };
 
-  const savePricing = async () => {
-    setIsSavingPricing(true);
-    await setDoc(doc(db, `apps/${APP_ID}/config`, 'pricing'), {
-      catA: priceCatA,
-      catB: priceCatB,
-      student: priceStudent
-    }, { merge: true });
-    setTimeout(() => setIsSavingPricing(false), 1000);
-  };
-
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <h1 className="text-2xl font-heading text-brand-primary mb-6">Systemeinstellungen</h1>
@@ -82,7 +59,7 @@ export function Settings() {
           onClick={() => setActiveTab('general')}
           className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
         >
-          Allgemein & Pricing
+          Allgemein & Branding
         </button>
         <button 
           onClick={() => setActiveTab('integrations')}
@@ -94,28 +71,6 @@ export function Settings() {
 
       {activeTab === 'general' && (
         <div className="space-y-6">
-          {/* Prices */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Preiskategorien (Master Config)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Kategorie A (€)</label>
-                <input type="number" value={priceCatA} onChange={e => setPriceCatA(Number(e.target.value))} className="w-full p-2 border border-brand-primary rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Kategorie B (€)</label>
-                <input type="number" value={priceCatB} onChange={e => setPriceCatB(Number(e.target.value))} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Student (€)</label>
-                <input type="number" value={priceStudent} onChange={e => setPriceStudent(Number(e.target.value))} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
-              </div>
-            </div>
-            <button onClick={savePricing} className="bg-brand-primary text-white px-4 py-2 rounded-lg hover:bg-red-700">
-              {isSavingPricing ? 'Gespeichert!' : 'Preise aktualisieren'}
-            </button>
-          </div>
-
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Branding (Logo)</h2>
             <ImageUploader 
