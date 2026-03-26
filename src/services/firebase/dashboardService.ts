@@ -77,18 +77,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const currentMonthBookingsQuery = query(
     bookingsRef,
-    where('status', '==', 'paid'),
-    // Note: Due to composite index limits, we fetch paid, then filter by date in client.
     orderBy('createdAt', 'desc'),
-    limit(100) // limit for safety, real app might need proper index on status+createdAt
+    limit(100) // limit for safety, filter by status and date in client to avoid Composite Index requirement
   );
 
   const monthSnap = await getDocs(currentMonthBookingsQuery);
   const revenue = monthSnap.docs.reduce((sum, doc) => {
     const b = doc.data() as Booking;
-    const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt as any);
-    if (createdAt >= startOfMonth) {
-      return sum + (b.totalAmount || 0);
+    // Check if it's paid and in current month
+    if (b.status === 'paid') {
+        const createdAt = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt as any);
+        if (createdAt >= startOfMonth) {
+            return sum + (b.totalAmount || 0);
+        }
     }
     return sum;
   }, 0);
