@@ -51,11 +51,20 @@ export interface Booking {
 
 export interface Partner {
   id: string;
-  companyName: string;
+  companyName: string; // Used as firmenname in import
   type: string;
-  contactPerson: string;
+  contactPerson?: string;
   email: string;
-  commissionRate?: number;
+  commissionRate?: number; // Used as provisionsSatz
+
+  // New fields from bulk import
+  art?: string;
+  merchantNr?: string;
+  strasse?: string;
+  ort?: string;
+  telefon?: string;
+  steuernummer?: string;
+  aktiv?: boolean;
 }
 
 export interface TicketCategory {

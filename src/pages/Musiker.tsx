@@ -3,6 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { createMusiker, deleteMusiker, type Musiker as MusikerType } from '../services/firebase/musikerService';
+import { runMusikerImport } from '../utils/importMusikerData';
 import { Plus, User, Trash2, Edit2 } from 'lucide-react';
 
 export function Musiker() {
@@ -117,12 +118,29 @@ export function Musiker() {
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-heading text-brand-primary">Musiker & Mitarbeiter</h1>
-        <button 
-          onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition"
-        >
-          <Plus className="w-5 h-5"/> Neu anlegen
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              if (!window.confirm('Achtung: Sollen die Rohdaten in die Datenbank importiert werden?')) return;
+              try {
+                await runMusikerImport();
+                alert('Import abgeschlossen!');
+              } catch (err) {
+                console.error(err);
+                alert('Import fehlgeschlagen!');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-bold"
+          >
+            DEV: Bulk Import
+          </button>
+          <button 
+            onClick={openNewModal}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition"
+          >
+            <Plus className="w-5 h-5"/> Neu anlegen
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -4,7 +4,7 @@ import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
 import { Event, EventEnsembleMember } from '../../types/schema';
 import type { Musiker } from '../../services/firebase/musikerService';
-import { Save } from 'lucide-react';
+import { Save, Printer } from 'lucide-react';
 
 interface Props {
   event: Event;
@@ -81,6 +81,18 @@ export function EventMusikerAssignment({ event, musikerList }: Props) {
                 className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-brand-primary focus:border-brand-primary"
               />
             </div>
+            {row.musikerId ? (
+              <button
+                type="button"
+                onClick={() => window.open(`/events/${event.id}/honorarnote/${row.musikerId}`, '_blank')}
+                title="Honorarnote drucken"
+                className="p-2 text-gray-400 hover:text-brand-primary transition-colors bg-gray-50 hover:bg-red-50 rounded border border-gray-200"
+              >
+                <Printer className="w-5 h-5" />
+              </button>
+            ) : (
+              <div className="w-9 h-9" />
+            )}
           </div>
         ))}
       </div>

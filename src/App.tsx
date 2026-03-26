@@ -12,17 +12,24 @@ import { Partners } from './pages/Partners';
 import { PartnerTypes } from './pages/PartnerTypes';
 import { Musiker } from './pages/Musiker';
 import { PricingCategories } from './pages/PricingCategories';
+import { HonorarnotePrint } from './pages/events/HonorarnotePrint';
 import { BookingFlow } from './components/booking/BookingFlow';
 import { SyncValidator } from './components/admin/SyncValidator';
 import { Statistics } from './pages/Statistics';
 import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from './contexts/AuthContext';
+import { Login } from './pages/auth/Login';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
 
 function App() {
   return (
-    <Router>
-      <Toaster position="top-right" />
-      <Routes>
-        <Route path="/" element={<DashboardShell />}>
+    <AuthProvider>
+      <Router>
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          <Route path="/" element={<ProtectedRoute><DashboardShell /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="events" element={<Events />} />
@@ -40,8 +47,11 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="admin/system-test" element={<SyncValidator />} />
         </Route>
+        {/* Print-only routes without Dashboard Shell */}
+        <Route path="/events/:eventId/honorarnote/:musikerId" element={<ProtectedRoute><HonorarnotePrint /></ProtectedRoute>} />
       </Routes>
     </Router>
+    </AuthProvider>
   );
 }
 

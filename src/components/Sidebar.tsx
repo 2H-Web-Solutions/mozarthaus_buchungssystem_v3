@@ -5,6 +5,8 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { useN8nActions } from '../hooks/useN8nActions';
+import { logout } from '../services/firebase/authService';
+import { LogOut } from 'lucide-react';
 
 export function Sidebar() {
   const location = useLocation();
@@ -165,6 +167,21 @@ export function Sidebar() {
             {isSyncing ? 'n8n Sync Active' : 'n8n Sync Idle'}
           </span>
         </div>
+
+        {/* Logout Button */}
+        <button
+          onClick={async () => {
+            try {
+              await logout();
+            } catch (err) {
+              console.error('Logout failed:', err);
+            }
+          }}
+          className="mt-4 flex items-center justify-center gap-2 w-full py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-md transition-colors text-sm font-bold border border-gray-200 hover:border-red-200"
+        >
+          <LogOut className="w-4 h-4" />
+          Abmelden
+        </button>
       </div>
     </div>
   );
