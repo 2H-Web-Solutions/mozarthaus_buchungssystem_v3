@@ -6,6 +6,8 @@ import { APP_ID } from '../lib/constants';
 import { Event, Partner } from '../types/schema';
 import { createBooking } from '../services/bookingService';
 import { SeatingPlan } from '../components/seating/SeatingPlan';
+import { EnsembleModal } from '../components/events/EnsembleModal';
+import { Users } from 'lucide-react';
 
 const TICKET_CATEGORIES = [
   { id: 'adult', label: 'Vollpreis', price: 45 },
@@ -30,6 +32,7 @@ export function EventDetails() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [isBooking, setIsBooking] = useState(false);
+  const [isEnsembleModalOpen, setIsEnsembleModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -122,8 +125,13 @@ export function EventDetails() {
             <h1 className="text-3xl font-heading text-brand-primary font-bold mb-2">{event.title}</h1>
             <p className="text-gray-600 font-medium">📅 {(event.date as any)?.toDate ? (event.date as any).toDate().toLocaleString('de-AT', { dateStyle: 'full', timeStyle: 'short' }) + ' Uhr' : `${new Date(event.date as string).toLocaleDateString('de-AT', { dateStyle: 'full'})} ${event.time || ''} Uhr`}</p>
           </div>
-          <div className="hidden md:block px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm font-bold border border-gray-200">
-            Status: {event.status.toUpperCase()}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsEnsembleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-lg text-sm font-bold border border-brand-primary/20 transition-colors">
+              <Users className="w-4 h-4" /> Dienstplan
+            </button>
+            <div className="hidden md:block px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm font-bold border border-gray-200">
+              Status: {event.status.toUpperCase()}
+            </div>
           </div>
         </div>
         <div className="flex-1 p-6 overflow-y-auto bg-gray-50/50">
@@ -218,6 +226,8 @@ export function EventDetails() {
           {isBooking ? 'Verarbeite Buchung...' : 'Kostenpflichtig buchen'}
         </button>
       </div>
+
+      {isEnsembleModalOpen && <EnsembleModal event={event} onClose={() => setIsEnsembleModalOpen(false)} />}
     </div>
   );
 }

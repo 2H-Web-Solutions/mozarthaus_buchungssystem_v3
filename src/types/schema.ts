@@ -1,11 +1,19 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface EventEnsembleMember {
+  musikerId: string;
+  name: string;
+  instrument: string;
+  status: 'angefragt' | 'bestätigt' | 'abgesagt';
+}
+
 export interface Event {
   id: string;
   title: string;
   date: Timestamp | string;
   time?: string;
   status: 'active' | 'completed' | 'cancelled';
+  ensemble?: EventEnsembleMember[];
 }
 
 export interface Seat {

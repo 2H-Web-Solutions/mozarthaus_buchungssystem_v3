@@ -9,6 +9,7 @@ import { Bookings } from './pages/Bookings';
 import { Kanban } from './pages/Kanban';
 import { Partners } from './pages/Partners';
 import { PartnerTypes } from './pages/PartnerTypes';
+import { Musiker } from './pages/Musiker';
 import { BookingFlow } from './components/booking/BookingFlow';
 import { SyncValidator } from './components/admin/SyncValidator';
 import { Statistics } from './pages/Statistics';
@@ -28,8 +29,9 @@ function App() {
           <Route path="kanban" element={<Kanban />} />
           <Route path="bookings" element={<Bookings />} />
           <Route path="statistics" element={<Statistics />} />
-          <Route path="partners" element={<Partners />} />
-          <Route path="partner-types" element={<PartnerTypes />} />
+          <Route path="stammdaten/partner" element={<Partners />} />
+          <Route path="stammdaten/partner-types" element={<PartnerTypes />} />
+          <Route path="stammdaten/musiker" element={<Musiker />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />
           <Route path="admin/system-test" element={<SyncValidator />} />

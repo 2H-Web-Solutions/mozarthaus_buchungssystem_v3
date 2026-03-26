@@ -10,11 +10,11 @@ export function Sidebar() {
   const location = useLocation();
   const { isSyncing } = useN8nActions();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
-  const [isPartnerMenuOpen, setIsPartnerMenuOpen] = useState(false);
+  const [isStammdatenOpen, setIsStammdatenOpen] = useState(false);
 
   useEffect(() => {
-    if (location.pathname.startsWith('/partner')) {
-      setIsPartnerMenuOpen(true);
+    if (location.pathname.startsWith('/stammdaten')) {
+      setIsStammdatenOpen(true);
     }
   }, [location.pathname]);
 
@@ -51,11 +51,12 @@ export function Sidebar() {
     { name: 'Transaktions-Log', path: '/bookings', icon: Calendar },
     { name: 'Statistiken', path: '/statistics', icon: BarChart },
     { 
-      name: 'Partner', 
+      name: 'Stammdaten', 
       icon: Users,
       subItems: [
-        { name: 'Übersicht', path: '/partners' },
-        { name: 'Partner Typen', path: '/partner-types' }
+        { name: 'Partner', path: '/stammdaten/partner' },
+        { name: 'Partner Typen', path: '/stammdaten/partner-types' },
+        { name: 'Musiker', path: '/stammdaten/musiker' }
       ]
     },
     // { name: 'Tasks', path: '/tasks', icon: undefined }, // Hidden for now
@@ -91,7 +92,7 @@ export function Sidebar() {
             return (
               <div key={item.name} className="space-y-1">
                 <button
-                  onClick={() => setIsPartnerMenuOpen(!isPartnerMenuOpen)}
+                  onClick={() => setIsStammdatenOpen(!isStammdatenOpen)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors ${
                     isActive 
                       ? 'bg-white/50 text-brand-primary font-medium' 
@@ -102,10 +103,10 @@ export function Sidebar() {
                     <Icon className="w-5 h-5" />
                     {item.name}
                   </div>
-                  {isPartnerMenuOpen ? <ChevronDown className="w-4 h-4 text-brand-primary" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                  {isStammdatenOpen ? <ChevronDown className="w-4 h-4 text-brand-primary" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                 </button>
                 
-                {isPartnerMenuOpen && (
+                {isStammdatenOpen && (
                   <div className="ml-9 space-y-1 mt-1">
                     {item.subItems.map(subItem => {
                       const isSubActive = location.pathname === subItem.path;
