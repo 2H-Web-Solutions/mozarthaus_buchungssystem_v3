@@ -7,6 +7,13 @@ import { Event, Partner } from '../types/schema';
 import { createBooking } from '../services/bookingService';
 import { SeatingPlan } from '../components/seating/SeatingPlan';
 
+const TICKET_CATEGORIES = [
+  { id: 'adult', label: 'Vollpreis', price: 45 },
+  { id: 'reduced', label: 'Ermäßigt (Student/Senior)', price: 35 },
+  { id: 'child', label: 'Kind (bis 14 J.)', price: 25 },
+  { id: 'free', label: 'Freikarte', price: 0 }
+];
+
 export function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -14,11 +21,12 @@ export function EventDetails() {
   
   // State from SeatingPlan callback
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
+  const [seatCategories, setSeatCategories] = useState<Record<string, string>>({});
   
   // Booking Form State
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [source, setSource] = useState<'manual' | 'regiondo' | 'b2b'>('manual');
+  const [source, setSource] = useState<'manual' | 'boxoffice' | 'phone' | 'website' | 'regiondo' | 'b2b'>('manual');
   const [partners, setPartners] = useState<Partner[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [isBooking, setIsBooking] = useState(false);
@@ -47,10 +55,21 @@ export function EventDetails() {
   // Callback coming from SeatingPlan via prompt constraints
   const handleSelectionChange = (ids: string[]) => {
     setSelectedSeatIds(ids);
+    setSeatCategories(prev => {
+      const newMapping: Record<string, string> = {};
+      ids.forEach(id => {
+        newMapping[id] = prev[id] || 'adult'; // Behalte bestehende oder setze Standard
+      });
+      return newMapping;
+    });
   };
 
   const calculateTotal = () => {
-    return selectedSeatIds.length * 45;
+    return selectedSeatIds.reduce((total, seatId) => {
+      const catId = seatCategories[seatId] || 'adult';
+      const category = TICKET_CATEGORIES.find(c => c.id === catId);
+      return total + (category?.price || 0);
+    }, 0);
   };
 
   const handleBooking = async () => {
@@ -66,7 +85,12 @@ export function EventDetails() {
         isB2B: source === 'b2b',
         status: 'confirmed',
         customerData: { name: customerName, email: customerEmail },
-        totalAmount: calculateTotal()
+        totalAmount: calculateTotal(),
+        tickets: selectedSeatIds.map(seatId => ({
+          seatId,
+          categoryId: seatCategories[seatId] || 'adult',
+          price: TICKET_CATEGORIES.find(c => c.id === (seatCategories[seatId] || 'adult'))?.price || 0
+        }))
       });
       // Clear cart
       setCustomerName('');
@@ -113,12 +137,39 @@ export function EventDetails() {
         
         <div className="mb-6 flex-1">
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">Ausgewählte Plätze</h3>
-          <div className="flex gap-2 flex-wrap mb-8 min-h-[3rem] p-4 bg-gray-50 rounded-lg border border-gray-100">
-             {selectedSeatIds.length > 0 ? selectedSeatIds.map(id => (
-               <span key={id} className="bg-brand-primary text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm animate-pulse">
-                 {id.replace(/row_|_seat_/g, ' ').toUpperCase()}
-               </span>
-             )) : <span className="text-sm text-gray-400 italic font-medium">Noch keine Plätze im Warenkorb</span>}
+          <div className="mb-8 min-h-[3rem] bg-gray-50 rounded-lg border border-gray-100 p-2 max-h-64 overflow-y-auto">
+            {selectedSeatIds.length > 0 ? (
+              <div className="space-y-2">
+                {selectedSeatIds.map(seatId => {
+                  const currentCatId = seatCategories[seatId] || 'adult';
+                  const currentPrice = TICKET_CATEGORIES.find(c => c.id === currentCatId)?.price || 0;
+                  
+                  return (
+                    <div key={seatId} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200 shadow-sm">
+                      <span className="font-bold text-brand-primary text-sm">
+                        {seatId.replace(/row_|_seat_/g, ' ').toUpperCase()}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <select 
+                          value={currentCatId}
+                          onChange={(e) => setSeatCategories(prev => ({ ...prev, [seatId]: e.target.value }))}
+                          className="text-sm border-gray-300 rounded p-1 bg-gray-50 focus:ring-brand-primary focus:border-brand-primary"
+                        >
+                          {TICKET_CATEGORIES.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.label}</option>
+                          ))}
+                        </select>
+                        <span className="font-bold text-gray-700 w-12 text-right">€ {currentPrice}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-sm text-gray-400 italic font-medium">
+                Noch keine Plätze im Warenkorb
+              </div>
+            )}
           </div>
           
           <div className="flex justify-between items-center font-bold text-2xl mb-8 bg-red-50 p-5 rounded-xl border border-red-100">
@@ -137,8 +188,11 @@ export function EventDetails() {
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Buchungsquelle</label>
-              <select value={source} onChange={(e) => setSource(e.target.value as 'manual'|'regiondo'|'b2b')} className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-brand-primary focus:ring-1 focus:ring-brand-primary cursor-pointer font-medium">
+              <select value={source} onChange={(e) => setSource(e.target.value as any)} className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-brand-primary focus:ring-1 focus:ring-brand-primary cursor-pointer font-medium">
                 <option value="manual">Manuell / Vor Ort</option>
+                <option value="boxoffice">Abendkasse</option>
+                <option value="phone">Telefonisch</option>
+                <option value="website">Website (Eigen)</option>
                 <option value="b2b">B2B Agentur</option>
                 <option value="regiondo">Regiondo API</option>
               </select>

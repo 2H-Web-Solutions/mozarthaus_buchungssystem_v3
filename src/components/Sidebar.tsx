@@ -25,6 +25,17 @@ export function Sidebar() {
         const data = snap.data();
         if (data.logoBase64) setLogoBase64(data.logoBase64);
         else setLogoBase64(null);
+
+        // Update favicon dynamically
+        if (data.faviconBase64) {
+          let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = data.faviconBase64;
+        }
       } else {
         setLogoBase64(null);
       }

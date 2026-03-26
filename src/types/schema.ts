@@ -23,11 +23,11 @@ export interface Booking {
   variantId?: string;
   partnerId: string | null;
   isB2B: boolean;
-  source: 'manual' | 'regiondo' | 'b2b';
+  source: 'manual' | 'boxoffice' | 'phone' | 'website' | 'regiondo' | 'b2b';
   status: 'confirmed' | 'cancelled' | 'pending' | 'paid';
   paymentMethod?: 'bar' | 'karte' | 'voucher' | 'rechnung';
   seatIds?: string[];
-  tickets?: { categoryId: string, quantity: number }[];
+  tickets?: { seatId?: string, categoryId: string, quantity?: number, price?: number }[];
   customerData: {
     name: string;
     email: string;

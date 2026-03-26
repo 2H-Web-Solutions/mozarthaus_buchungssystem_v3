@@ -120,7 +120,7 @@ export function Statistics() {
         if (b.status === 'paid') {
           pRevenue += b.totalAmount || 0;
         }
-        tTickets += b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + t.quantity, 0) || 0);
+        tTickets += b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + (t.quantity || 1), 0) || 0);
       }
     });
 
@@ -328,7 +328,7 @@ export function Statistics() {
                         </span>
                       </td>
                       <td className="p-4 text-gray-700 font-bold">
-                         {b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + t.quantity, 0) || 0)} Plätze
+                         {b.seatIds ? b.seatIds.length : (b.tickets?.reduce((acc, t) => acc + (t.quantity || 1), 0) || 0)} Plätze
                       </td>
                       <td className="p-4">
                          <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${

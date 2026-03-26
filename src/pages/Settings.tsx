@@ -10,6 +10,7 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<'general' | 'integrations'>('general');
   // General: App Settings & Customization
   const [currentLogo, setCurrentLogo] = useState<string | null>(null);
+  const [currentFavicon, setCurrentFavicon] = useState<string | null>(null);
   const [caption, setCaption] = useState('Buchungssystem Mozarthaus');
   const [fontSize, setFontSize] = useState('text-xl');
   const [isSavingTexts, setIsSavingTexts] = useState(false);
@@ -26,6 +27,7 @@ export function Settings() {
       if (snap.exists()) {
         const data = snap.data();
         setCurrentLogo(data.logoBase64 || null);
+        setCurrentFavicon(data.faviconBase64 || null);
         if (data.sidebarCaption !== undefined) setCaption(data.sidebarCaption);
         if (data.sidebarFontSize !== undefined) setFontSize(data.sidebarFontSize);
       }
@@ -45,6 +47,10 @@ export function Settings() {
 
   const handleLogoUpload = async (base64: string) => {
     await setDoc(doc(db, `apps/${APP_ID}/settings`, 'general'), { logoBase64: base64 }, { merge: true });
+  };
+
+  const handleFaviconUpload = async (base64: string) => {
+    await setDoc(doc(db, `apps/${APP_ID}/settings`, 'general'), { faviconBase64: base64 }, { merge: true });
   };
 
   const saveTextSettings = async () => {
@@ -120,6 +126,21 @@ export function Settings() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-sm text-gray-500 mb-2">Aktuelles Logo (Vorschau):</p>
                 <img src={currentLogo} alt="Logo Preview" className="h-12 object-contain bg-gray-50 p-2 rounded border" />
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Favicon (Browser Tab Icon)</h2>
+            <p className="text-sm text-gray-500 mb-4">Lädt dynamisch in jedem Tab. Quadratische Grafiken bevorzugt (z.B. 64x64px).</p>
+            <ImageUploader 
+              onUpload={handleFaviconUpload}
+              currentImage={currentFavicon || undefined}
+            />
+            {currentFavicon && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-sm text-gray-500 mb-2">Aktuelles Favicon (Vorschau):</p>
+                <img src={currentFavicon} alt="Favicon Preview" className="h-8 w-8 object-contain bg-gray-50 p-1 rounded border shadow-sm" />
               </div>
             )}
           </div>

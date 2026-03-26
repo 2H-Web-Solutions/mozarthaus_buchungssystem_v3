@@ -7,6 +7,43 @@ import { Event } from '../types/schema';
 import { CalendarPlus } from 'lucide-react';
 import { initializeEventSeats } from '../services/bookingService';
 
+function EventOccupancy({ eventId }: { eventId: string }) {
+  const [occupancy, setOccupancy] = useState({ booked: 0, total: 0 });
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, `apps/${APP_ID}/events/${eventId}/seats`), (snap) => {
+      let total = 0;
+      let booked = 0;
+      snap.forEach(doc => {
+        total++;
+        if (doc.data().status !== 'available') {
+          booked++;
+        }
+      });
+      setOccupancy({ booked, total });
+    });
+    return () => unsub();
+  }, [eventId]);
+
+  if (occupancy.total === 0) return <span className="text-gray-400 text-sm">-</span>;
+
+  const percentage = Math.round((occupancy.booked / occupancy.total) * 100) || 0;
+  
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+        {occupancy.booked} / {occupancy.total}
+      </span>
+      <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden hidden sm:block">
+        <div 
+          className={`h-full transition-all duration-500 ${percentage > 90 ? 'bg-red-500' : percentage > 50 ? 'bg-yellow-500' : 'bg-green-500'}`} 
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,12 +122,13 @@ export function Events() {
               <th className="p-4">Datum</th>
               <th className="p-4">Titel</th>
               <th className="p-4">Status</th>
+              <th className="p-4">Auslastung</th>
               <th className="p-4 text-right">Aktion</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
              {events.length === 0 ? (
-               <tr><td colSpan={4} className="p-8 text-center text-gray-500">Keine Events vorhanden.</td></tr>
+               <tr><td colSpan={5} className="p-8 text-center text-gray-500">Keine Events vorhanden.</td></tr>
               ) : events.map(evt => (
                <tr key={evt.id} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/events/${evt.id}`)}>
                  <td className="p-4 whitespace-nowrap">
@@ -105,6 +143,9 @@ export function Events() {
                    <span className={`px-2 py-1 text-xs rounded-full ${evt.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                      {evt.status.toUpperCase()}
                    </span>
+                 </td>
+                 <td className="p-4">
+                   <EventOccupancy eventId={evt.id} />
                  </td>
                  <td className="p-4 text-right text-brand-primary text-sm font-medium">
                    Saalplan öffnen &rarr;

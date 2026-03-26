@@ -8,7 +8,7 @@ export function BookingCard({ booking, index, partners }: { booking: Booking; in
   };
   
   const totalTickets = booking.tickets 
-    ? booking.tickets.reduce((acc, t) => acc + t.quantity, 0) 
+    ? booking.tickets.reduce((acc, t) => acc + (t.quantity || 1), 0) 
     : booking.seatIds?.length || 0;
 
   const partnerName = booking.isB2B && booking.partnerId && partners 
