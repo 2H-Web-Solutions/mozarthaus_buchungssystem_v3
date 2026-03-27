@@ -3,18 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
-import { Event, Partner } from '../types/schema';
+import { Event, Partner, TicketCategory } from '../types/schema';
 import { createBooking } from '../services/bookingService';
 import { SeatingPlan } from '../components/seating/SeatingPlan';
 import { EnsembleModal } from '../components/events/EnsembleModal';
 import { Users } from 'lucide-react';
 
-const TICKET_CATEGORIES = [
-  { id: 'adult', label: 'Vollpreis', price: 45 },
-  { id: 'reduced', label: 'Ermäßigt (Student/Senior)', price: 35 },
-  { id: 'child', label: 'Kind (bis 14 J.)', price: 25 },
-  { id: 'free', label: 'Freikarte', price: 0 }
-];
+import { listenTicketCategories } from '../services/firebase/pricingService';
+
+// Dynamic categories loaded from DB in component state
 
 export function EventDetails() {
   const { id } = useParams();
@@ -24,6 +21,7 @@ export function EventDetails() {
   // State from SeatingPlan callback
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [seatCategories, setSeatCategories] = useState<Record<string, string>>({});
+  const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   
   // Booking Form State
   const [customerName, setCustomerName] = useState('');
@@ -53,6 +51,12 @@ export function EventDetails() {
        snap.forEach(d => p.push({ id: d.id, ...d.data() } as Partner));
        setPartners(p);
     });
+
+    const unsubCategories = listenTicketCategories((cats) => {
+      setTicketCategories(cats.filter(c => c.isActive));
+    });
+
+    return () => unsubCategories();
   }, [id, navigate]);
 
   // Callback coming from SeatingPlan via prompt constraints
@@ -60,8 +64,9 @@ export function EventDetails() {
     setSelectedSeatIds(ids);
     setSeatCategories(prev => {
       const newMapping: Record<string, string> = {};
+      const fallbackId = ticketCategories.length > 0 ? ticketCategories[0].id : '';
       ids.forEach(id => {
-        newMapping[id] = prev[id] || 'adult'; // Behalte bestehende oder setze Standard
+        newMapping[id] = prev[id] || fallbackId; // Behalte bestehende oder setze Standard
       });
       return newMapping;
     });
@@ -69,8 +74,9 @@ export function EventDetails() {
 
   const calculateTotal = () => {
     return selectedSeatIds.reduce((total, seatId) => {
-      const catId = seatCategories[seatId] || 'adult';
-      const category = TICKET_CATEGORIES.find(c => c.id === catId);
+      const fallbackId = ticketCategories.length > 0 ? ticketCategories[0].id : '';
+      const catId = seatCategories[seatId] || fallbackId;
+      const category = ticketCategories.find(c => c.id === catId);
       return total + (category?.price || 0);
     }, 0);
   };
@@ -89,11 +95,15 @@ export function EventDetails() {
         status: 'confirmed',
         customerData: { name: customerName, email: customerEmail },
         totalAmount: calculateTotal(),
-        tickets: selectedSeatIds.map(seatId => ({
-          seatId,
-          categoryId: seatCategories[seatId] || 'adult',
-          price: TICKET_CATEGORIES.find(c => c.id === (seatCategories[seatId] || 'adult'))?.price || 0
-        }))
+        tickets: selectedSeatIds.map(seatId => {
+          const fallbackId = ticketCategories.length > 0 ? ticketCategories[0].id : '';
+          const catId = seatCategories[seatId] || fallbackId;
+          return {
+            seatId,
+            categoryId: catId,
+            price: ticketCategories.find(c => c.id === catId)?.price || 0
+          };
+        })
       });
       // Clear cart
       setCustomerName('');
@@ -149,8 +159,9 @@ export function EventDetails() {
             {selectedSeatIds.length > 0 ? (
               <div className="space-y-2">
                 {selectedSeatIds.map(seatId => {
-                  const currentCatId = seatCategories[seatId] || 'adult';
-                  const currentPrice = TICKET_CATEGORIES.find(c => c.id === currentCatId)?.price || 0;
+                  const fallbackId = ticketCategories.length > 0 ? ticketCategories[0].id : '';
+                  const currentCatId = seatCategories[seatId] || fallbackId;
+                  const currentPrice = ticketCategories.find(c => c.id === currentCatId)?.price || 0;
                   
                   return (
                     <div key={seatId} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200 shadow-sm">
@@ -163,8 +174,8 @@ export function EventDetails() {
                           onChange={(e) => setSeatCategories(prev => ({ ...prev, [seatId]: e.target.value }))}
                           className="text-sm border-gray-300 rounded p-1 bg-gray-50 focus:ring-brand-primary focus:border-brand-primary"
                         >
-                          {TICKET_CATEGORIES.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.label}</option>
+                          {ticketCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
                           ))}
                         </select>
                         <span className="font-bold text-gray-700 w-12 text-right">€ {currentPrice}</span>

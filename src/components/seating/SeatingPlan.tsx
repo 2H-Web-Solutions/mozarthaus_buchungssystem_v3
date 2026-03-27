@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { SEATING_PLAN_TEMPLATE } from '../../config/seatingPlan';
-import { Seat } from '../../types/schema';
+import { Seat, Booking, TicketCategory } from '../../types/schema';
 import { SeatButton } from './SeatButton';
 import { getEventSeats, initializeEventSeats } from '../../services/bookingService';
 import { X } from 'lucide-react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { APP_ID } from '../../lib/constants';
+import { listenTicketCategories } from '../../services/firebase/pricingService';
 
 interface Props {
   eventId: string;
@@ -14,6 +18,10 @@ export function SeatingPlan({ eventId, onSelectionChange }: Props) {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     // 1. Fetch from subcollection in real-time
@@ -49,7 +57,27 @@ export function SeatingPlan({ eventId, onSelectionChange }: Props) {
       });
     });
     
-    return () => unsub();
+    // 2. Fetch Bookings for this specific Event
+    const q = query(
+      collection(db, `apps/${APP_ID}/bookings`),
+      where('eventId', '==', eventId)
+    );
+    const unsubBookings = onSnapshot(q, (snap) => {
+      const bList: Booking[] = [];
+      snap.forEach(d => bList.push({ id: d.id, ...d.data() } as Booking));
+      setBookings(bList);
+    });
+
+    // 3. Fetch Ticket Categories
+    const unsubCategories = listenTicketCategories((cats) => {
+       setCategories(cats);
+    });
+    
+    return () => {
+      unsub();
+      unsubBookings();
+      unsubCategories();
+    };
   }, [eventId]);
 
   const toggleSeat = (seatId: string) => {
@@ -103,12 +131,26 @@ export function SeatingPlan({ eventId, onSelectionChange }: Props) {
               if (!dbSeat) return null;
 
               const isSelected = selectedSeatIds.includes(el.id);
+              
+              // Find matching booking if seat appears sold/reserved/checkedIn
+              const seatBooking = bookings.find(b => b.seatIds?.includes(el.id) || b.tickets?.some(t => t.seatId === el.id));
+              let categoryColor: string | undefined = undefined;
+              
+              if (seatBooking) {
+                 const ticket = seatBooking.tickets?.find(t => t.seatId === el.id);
+                 if (ticket) {
+                    categoryColor = categories.find(c => c.id === ticket.categoryId)?.colorCode;
+                 }
+              }
+
               return (
                 <SeatButton 
                   key={el.id} 
                   seat={dbSeat} 
                   isSelected={isSelected} 
                   onToggle={toggleSeat} 
+                  categoryColor={categoryColor}
+                  onClickInfo={seatBooking ? () => setSelectedBooking(seatBooking) : undefined}
                 />
               );
             })}
@@ -139,6 +181,43 @@ export function SeatingPlan({ eventId, onSelectionChange }: Props) {
             <div className="w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white"/></div> Gesperrt
          </div>
       </div>
+
+      {/* Info Modal per Click */}
+      {selectedBooking && selectedBooking.customerData && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full relative">
+            <button 
+              onClick={() => setSelectedBooking(null)} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-bold text-gray-900 text-lg mb-4 pr-6">Buchungsdetails</h3>
+            <div className="space-y-3 text-sm">
+               <div className="flex justify-between border-b border-gray-100 pb-2">
+                 <span className="text-gray-500">Kunde:</span>
+                 <span className="font-medium text-gray-900">{selectedBooking.customerData.name}</span>
+               </div>
+               <div className="flex justify-between border-b border-gray-100 pb-2">
+                 <span className="text-gray-500">Email:</span>
+                 <span className="font-medium text-gray-900 truncate pl-4">{selectedBooking.customerData.email}</span>
+               </div>
+               <div className="flex justify-between border-b border-gray-100 pb-2">
+                 <span className="text-gray-500">Status:</span>
+                 <span className="font-medium text-gray-900 capitalize">{selectedBooking.status}</span>
+               </div>
+               <div className="flex justify-between border-b border-gray-100 pb-2">
+                 <span className="text-gray-500">Quelle:</span>
+                 <span className="font-medium text-gray-900 capitalize">{selectedBooking.source === 'boxoffice' ? 'Abendkasse' : selectedBooking.source}</span>
+               </div>
+               <div className="flex justify-between pt-1">
+                 <span className="text-gray-500">Sitzplätze:</span>
+                 <span className="font-medium text-brand-primary">{selectedBooking.seatIds?.length || 0} Ticket(s)</span>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
