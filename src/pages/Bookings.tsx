@@ -5,51 +5,43 @@ import { APP_ID } from '../lib/constants';
 import { Booking } from '../types/schema';
 import { cancelBooking } from '../services/bookingService';
 import { Search, Filter } from 'lucide-react';
-// Verhindert Zeitzonen-Verschiebungen und zeigt Regiondo-Strings 1:1 an
-const formatRawDate = (dateVal: any) => {
+// Verhindert Zeitzonen-Verschiebungen und zeigt Regiondo-Zeiten 1:1 an
+const formatRawDate = (dateVal: any, source?: string) => {
   if (!dateVal) return '-';
   
-  // 1. Fall: Natives Firebase Timestamp Objekt (aus der App selbst)
+  // 1. Fall: Natives Firebase Timestamp Objekt
   if (dateVal.toDate) {
-    return dateVal.toDate().toLocaleString('de-AT', { 
+    const options: Intl.DateTimeFormatOptions = { 
       day: '2-digit', month: '2-digit', year: 'numeric', 
       hour: '2-digit', minute: '2-digit' 
-    }) + ' Uhr';
+    };
+    // WICHTIG: n8n speichert Regiondo-Zeiten als UTC. Wir erzwingen hier UTC, 
+    // um die Originalzeit (ohne +2 Stunden Sommerzeit) wiederherzustellen!
+    if (source === 'regiondo') {
+      options.timeZone = 'UTC';
+    }
+    return dateVal.toDate().toLocaleString('de-AT', options) + ' Uhr';
   }
   
-  // 2. Fall: Raw String aus Regiondo (z.B. "2026-06-10 20:00:00")
+  // 2. Fall: Raw String
   if (typeof dateVal === 'string') {
-    const match = dateVal.match(/^(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2})/);
+    const match = dateVal.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
     if (match) {
-      // Exakt 1:1 Mapping: DD.MM.YYYY, HH:MM Uhr
       return `${match[3]}.${match[2]}.${match[1]}, ${match[4]}:${match[5]} Uhr`;
     }
-    // Fallback, falls der String ein anderes Format hat
     try {
-      return new Date(dateVal).toLocaleString('de-AT', { 
+      const options: Intl.DateTimeFormatOptions = { 
         day: '2-digit', month: '2-digit', year: 'numeric', 
         hour: '2-digit', minute: '2-digit' 
-      }) + ' Uhr';
+      };
+      if (source === 'regiondo') options.timeZone = 'UTC';
+      return new Date(dateVal).toLocaleString('de-AT', options) + ' Uhr';
     } catch (e) {
       return dateVal;
     }
   }
   
   return '-';
-};
-
-// Übersetzt Regiondo Option-IDs in lesbare Kategorienamen
-const getCategoryName = (categoryId?: string) => {
-  if (!categoryId) return '';
-  
-  const categoryMap: Record<string, string> = {
-    '1549178': 'Kategorie A',
-    '1549179': 'Kategorie B',
-    '1549180': 'Kategorie C', // Beispiel, falls vorhanden
-    '1549181': 'Student',     // Beispiel, falls vorhanden
-  };
-
-  return categoryMap[categoryId] || `ID: ${categoryId}`;
 };
 
 export function Bookings() {
@@ -164,11 +156,11 @@ export function Bookings() {
                      </span>
                    </td>
                    <td className="p-3 border-r border-gray-200 whitespace-nowrap text-gray-700">
-                     {formatRawDate(b.createdAt)}
+                     {formatRawDate(b.createdAt, b.source)}
                    </td>
                    <td className="p-3 border-r border-gray-200 min-w-[180px]">
                      <div className="font-medium text-brand-primary">{String(b.eventId || '')}</div>
-                     {b.dateTime && <div className="text-xs text-gray-500">{formatRawDate(b.dateTime)}</div>}
+                     {b.dateTime && <div className="text-xs text-gray-500">{formatRawDate(b.dateTime, b.source)}</div>}
                    </td>
                    <td className="p-3 border-r border-gray-200 font-medium text-gray-900 min-w-[140px]">
                      {b.customerData?.name || '-'}
@@ -189,9 +181,9 @@ export function Bookings() {
                          <span className="text-gray-400">0</span>
                        )}
                      </div>
-                     {(b.categoryId || (b.tickets && b.tickets[0]?.categoryId)) && (
-                       <div className="text-xs text-brand-primary mt-1 font-semibold uppercase">
-                         {getCategoryName(b.categoryId || b.tickets?.[0]?.categoryId)}
+                     {(b.categoryName || b.categoryId || (b.tickets && b.tickets[0]?.categoryName)) && (
+                       <div className="text-xs text-gray-500 mt-1 font-semibold text-brand-primary">
+                         {b.categoryName || (b.tickets && b.tickets[0]?.categoryName) || `Kat: ${b.categoryId}`}
                        </div>
                      )}
                    </td>
@@ -208,7 +200,17 @@ export function Bookings() {
                        {b.status || 'UNKNOWN'}
                      </span>
                    </td>
-                   <td className="p-3 text-right">
+                   <td className="p-3 text-right whitespace-nowrap">
+                     {b.receiptUrl && (
+                       <a 
+                         href={b.receiptUrl} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-blue-600 hover:text-blue-800 text-xs font-bold mr-3"
+                       >
+                         Beleg PDF
+                       </a>
+                     )}
                      {b.status === 'confirmed' && (
                        <button 
                          onClick={() => handleCancel(b.id)}

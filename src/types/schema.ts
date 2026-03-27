@@ -38,7 +38,7 @@ export interface Booking {
   status: 'confirmed' | 'cancelled' | 'pending' | 'paid';
   paymentMethod?: 'bar' | 'karte' | 'voucher' | 'rechnung';
   seatIds?: string[];
-  tickets?: { seatId?: string, categoryId: string, quantity?: number, price?: number, regiondoOptionId?: string | number }[];
+  tickets?: { seatId?: string, categoryId: string, categoryName?: string, quantity?: number, price?: number, regiondoOptionId?: string | number }[];
   checkedInSeats?: string[]; // Specifically for Abendkasse per-seat tracking
   customerData: {
     name: string;
@@ -48,6 +48,7 @@ export interface Booking {
   eventDate?: string; // Optional: The human-readable date string of the event (e.g. 21.05.2024)
   dateTime?: string; // Optional: The human-readable timestamp of the event for display
   categoryId?: string; // NEU: Category ID from Regiondo
+  categoryName?: string; // NEU: Lesbarer Name der Option/Kategorie
   eventTitle?: string;
   totalAmount: number;
   regiondoProductId?: string | number; // NEU: Die Event-ID für Regiondo
@@ -58,6 +59,7 @@ export interface Booking {
   contactPerson?: string;
   groupPersons?: number;
   customTotalPrice?: number;
+  receiptUrl?: string; // Link zum externen Stripe-Beleg / Regiondo-Ticket
 
   createdAt: Timestamp;
   updatedAt?: string | Timestamp;
