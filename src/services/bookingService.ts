@@ -85,9 +85,21 @@ export async function createBooking(
         createdAt: Timestamp.now()
       };
       
-      
-      transaction.set(bookingRef, newBooking);
-      createdBooking = newBooking;
+      const sanitizeForFirestore = (obj: any): any => {
+        if (obj === null || typeof obj !== 'object' || obj instanceof Timestamp) return obj;
+        if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+        const result: any = {};
+        for (const key in obj) {
+          if (obj[key] !== undefined) {
+            result[key] = sanitizeForFirestore(obj[key]);
+          }
+        }
+        return result;
+      };
+
+      const sanitizedBooking = sanitizeForFirestore(newBooking);
+      transaction.set(bookingRef, sanitizedBooking);
+      createdBooking = sanitizedBooking;
     });
     
     // Asynchronous trigger for email confirmation
@@ -178,8 +190,22 @@ export async function createVariantBooking(bookingData: Omit<Booking, 'id' | 'cr
          id: bookingId,
          createdAt: Timestamp.now()
        };
-       transaction.set(bookingRef, newBooking);
-       createdBooking = newBooking;
+       
+      const sanitizeForFirestore = (obj: any): any => {
+        if (obj === null || typeof obj !== 'object' || obj instanceof Timestamp) return obj;
+        if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+        const result: any = {};
+        for (const key in obj) {
+          if (obj[key] !== undefined) {
+            result[key] = sanitizeForFirestore(obj[key]);
+          }
+        }
+        return result;
+      };
+
+      const sanitizedBooking = sanitizeForFirestore(newBooking);
+      transaction.set(bookingRef, sanitizedBooking);
+      createdBooking = sanitizedBooking;
     });
 
     // Asynchronous trigger for email confirmation
