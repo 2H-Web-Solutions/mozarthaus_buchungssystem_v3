@@ -18,13 +18,15 @@ export async function notifyN8n(message: string, type: 'info' | 'warning' | 'err
 
 /**
  * Spezifischer Outbound-Trigger für die Regiondo-Synchronisation.
- * Nutzt VITE_N8N_2_WEBHOOK_URL und enthält Loop-Protection.
+ * Nutzt VITE_N8N_3_WEBHOOK_URL (Public) als primäre Route und fällt
+ * lokal auf VITE_N8N_2_WEBHOOK_URL (Internal) zurück.
+ * Enthält Loop-Protection.
  */
 export async function triggerN8nOutboundSync(booking: Booking) {
-  const regiondoWebhookUrl = import.meta.env.VITE_N8N_2_WEBHOOK_URL;
+  const regiondoWebhookUrl = import.meta.env.VITE_N8N_3_WEBHOOK_URL || import.meta.env.VITE_N8N_2_WEBHOOK_URL;
   
   if (!regiondoWebhookUrl) {
-    console.warn('[n8n Regiondo Sync] VITE_N8N_2_WEBHOOK_URL is missing in .env.');
+    console.warn('[n8n Regiondo Sync] VITE_N8N_3_WEBHOOK_URL and VITE_N8N_2_WEBHOOK_URL are missing in .env.');
     return;
   }
 
