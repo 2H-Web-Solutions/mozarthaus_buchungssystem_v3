@@ -1,13 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarDays, Ticket, Euro, ArrowRight } from 'lucide-react';
+import { Activity, CalendarDays, Ticket, Euro, ArrowRight, Trash2 } from 'lucide-react';
 import { getDashboardStats, DashboardStats } from '../services/firebase/dashboardService';
 import { SyncControl } from '../components/dashboard/SyncControl';
+import { cancelBooking } from '../services/bookingService';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { APP_ID } from '../lib/constants';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCleaning, setIsCleaning] = useState(false);
+
+  const handleCleanupBookings = async () => {
+    if (!window.confirm("ACHTUNG: Willst du WIRKLICH alle Buchungen stornieren? Dies gibt alle verknüpften Sitzplätze wieder frei! (Dieser Vorgang kann ein paar Sekunden dauern)")) return;
+    setIsCleaning(true);
+    try {
+      const bookingsRef = collection(db, `apps/${APP_ID}/bookings`);
+      const snapshot = await getDocs(bookingsRef);
+      const bookingIds = snapshot.docs.map(doc => doc.id);
+      
+      let cancelledCount = 0;
+      for (const id of bookingIds) {
+        try {
+          // Utilizes the strict transaction cancellation block
+          await cancelBooking(id);
+          cancelledCount++;
+        } catch (e) {
+          console.error(`Failed to cancel booking ${id}`, e);
+        }
+      }
+      alert(`Erfolgreich ${cancelledCount} Buchungen storniert und alle verknüpften Sitzplätze freigegeben.`);
+      // Reload stats automatically
+      const data = await getDashboardStats();
+      setStats(data);
+    } catch (error) {
+      console.error("Cleanup failed", error);
+      alert("Fehler beim Cleanup.");
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   useEffect(() => {
     async function loadStats() {
@@ -43,6 +78,13 @@ export function Dashboard() {
            <p className="text-gray-500 font-medium mt-1">Hier ist dein zentraler Überblick für Mozarthaus.at</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button 
+            onClick={handleCleanupBookings}
+            disabled={isCleaning}
+            className="flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 px-4 py-3.5 rounded-xl hover:bg-red-100 transition font-bold disabled:opacity-50"
+          >
+            <Trash2 className="w-5 h-5"/> {isCleaning ? 'Lösche...' : 'Testdaten Cleanup'}
+          </button>
           <button 
             onClick={() => navigate('/new-booking')}
             className="flex items-center justify-center gap-2 bg-brand-primary text-white px-8 py-3.5 rounded-xl hover:bg-red-700 transition font-bold shadow-xl shadow-brand-primary/20 animate-in zoom-in duration-300"
