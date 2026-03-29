@@ -5,8 +5,9 @@ import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Event } from '../types/schema';
 import { BulkEventGenerator } from '../components/BulkEventGenerator';
-import { CalendarPlus, RefreshCw } from 'lucide-react';
+import { CalendarPlus, RefreshCw, Trash2 } from 'lucide-react';
 import { syncMissingEvents } from '../utils/syncEventsFromBookings';
+import { deleteAllEvents } from '../utils/deleteAllEvents';
 import { initializeEventSeats } from '../services/bookingService';
 
 function EventOccupancy({ eventId }: { eventId: string }) {
@@ -75,6 +76,27 @@ export function Events() {
   const navigate = useNavigate();
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+
+  const handleDeleteAll = async () => {
+    const confirm1 = window.confirm('ACHTUNG: Möchtest du wirklich ALLE Events und Sitzpläne löschen? (Buchungen bleiben erhalten)');
+    if (!confirm1) return;
+    
+    const confirm2 = window.confirm('Bist du GANZ SICHER? Dies kann nicht rückgängig gemacht werden.');
+    if (!confirm2) return;
+
+    setIsDeletingAll(true);
+    try {
+      const count = await deleteAllEvents();
+      alert(`${count} Events inkl. Sitzpläne wurden erfolgreich gelöscht!`);
+      window.location.reload(); // Seite neu laden, um leere Liste zu zeigen
+    } catch (error) {
+      console.error(error);
+      alert('Fehler beim Löschen der Events.');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
 
   const handleSync = async () => {
     if (!window.confirm('Möchtest du die Datenbank prüfen und fehlende Sitzpläne für importierte Events generieren? (Es werden keine Duplikate erstellt)')) return;
@@ -148,6 +170,14 @@ export function Events() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-heading text-brand-primary">Events & Konzerte</h1>
         <div className="flex gap-3">
+          <button 
+            onClick={handleDeleteAll}
+            disabled={isDeletingAll}
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition disabled:opacity-50"
+          >
+            <Trash2 className={`w-5 h-5 ${isDeletingAll ? 'animate-pulse' : ''}`}/> 
+            {isDeletingAll ? 'Lösche...' : 'Alle Events löschen'}
+          </button>
           <BulkEventGenerator onComplete={() => {}} />
           <button 
             onClick={handleSync}
