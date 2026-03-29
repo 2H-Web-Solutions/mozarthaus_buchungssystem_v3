@@ -76,11 +76,11 @@ export function Events() {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = async () => {
-    if (!window.confirm('Möchtest du fehlende Events aus den Buchungen generieren?')) return;
+    if (!window.confirm('Möchtest du die Datenbank prüfen und fehlende Sitzpläne für importierte Events generieren? (Es werden keine Duplikate erstellt)')) return;
     setIsSyncing(true);
     try {
-      const count = await syncMissingEvents();
-      alert(`${count} fehlende Events wurden erfolgreich erstellt und initialisiert!`);
+      const { createdCount, initializedSeatsCount } = await syncMissingEvents();
+      alert(`Sync erfolgreich!\n\nNeu erstellte Events: ${createdCount}\nReparierte Sitzpläne (Auslastung jetzt sichtbar): ${initializedSeatsCount}`);
     } catch (error) {
       console.error(error);
       alert('Fehler beim Synchronisieren.');
