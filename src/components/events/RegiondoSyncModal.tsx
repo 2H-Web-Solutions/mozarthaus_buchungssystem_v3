@@ -20,7 +20,7 @@ export function RegiondoSyncModal({ isOpen, onClose }: RegiondoSyncModalProps) {
 
     setIsSyncing(true);
     
-    const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL_REGIONDO_SYNC || 'https://n8n.2h-websolutions.de/webhook/regiondo-fetch-events';
+    const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL_REGIONDO_SYNC || 'https://up-seo-2025/webhook/regiondo-fetch-events';
 
     try {
       const response = await fetch(webhookUrl, {
