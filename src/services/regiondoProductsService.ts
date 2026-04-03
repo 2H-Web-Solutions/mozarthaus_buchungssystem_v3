@@ -29,6 +29,16 @@ function parseListBody(body: unknown): { products: RegiondoProduct[]; page: Regi
   return { products: [], page: null };
 }
 
+function parseProductDetail(body: unknown): RegiondoProduct {
+  if (isRecord(body) && body.data != null && isRecord(body.data)) {
+    return body.data as unknown as RegiondoProduct;
+  }
+  if (isRecord(body) && typeof body.product_id === 'string') {
+    return body as unknown as RegiondoProduct;
+  }
+  throw new Error('Unexpected product detail response shape');
+}
+
 export interface FetchRegiondoProductsOptions {
   limit?: number;
   offset?: number;
@@ -70,6 +80,35 @@ export async function fetchRegiondoProducts(
       : undefined;
 
   return { products, page, raw };
+}
+
+export interface FetchRegiondoProductByIdOptions {
+  store_locale?: string;
+  /** `default`, `EUR`, … — see Regiondo docs */
+  currency?: string;
+}
+
+/**
+ * `GET /v1/products/{productId}` — full product detail (single product).
+ */
+export async function fetchRegiondoProductById(
+  productId: string,
+  params: FetchRegiondoProductByIdOptions = {}
+): Promise<RegiondoProduct> {
+  const searchParams = new URLSearchParams();
+  if (params.store_locale) searchParams.set('store_locale', params.store_locale);
+  if (params.currency) searchParams.set('currency', params.currency);
+
+  const url = buildRegiondoProxyUrl(`products/${encodeURIComponent(productId)}`, searchParams);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Regiondo product ${productId} request failed (${res.status})`);
+  }
+
+  const json = (await res.json()) as unknown;
+  return parseProductDetail(json);
 }
 
 export interface FetchRegiondoAvailabilitiesOptions {

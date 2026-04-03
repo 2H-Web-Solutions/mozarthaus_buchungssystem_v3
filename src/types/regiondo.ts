@@ -25,6 +25,8 @@ export interface RegiondoProduct {
   name: string;
   sku?: string;
   short_description?: string;
+  /** Often present on `GET /v1/products/{productId}` (detail). */
+  description?: string;
   geo_lat?: string;
   geo_lon?: string;
   distance?: string | null;
