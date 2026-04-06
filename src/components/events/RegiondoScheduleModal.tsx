@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { RegiondoProduct, RegiondoVariation } from '../../types/regiondo';
 import {
-  defaultAvailabilityDateRange,
   fetchRegiondoAvailabilities,
+  todayAvailabilityDateRange,
 } from '../../services/regiondoProductsService';
-import { parseAvailabilitySchedule, type AvailabilityDayRow } from '../../utils/regiondoAvailability';
+import {
+  formatSlotCapacityLabel,
+  parseAvailabilitySchedule,
+  type AvailabilityDayRow,
+} from '../../utils/regiondoAvailability';
 import { Calendar, Loader2, X } from 'lucide-react';
 
 interface RegiondoScheduleModalProps {
@@ -24,7 +28,7 @@ export function RegiondoScheduleModal({ isOpen, product, onClose }: RegiondoSche
 
   useEffect(() => {
     if (!isOpen || !product) return;
-    const r = defaultAvailabilityDateRange();
+    const r = todayAvailabilityDateRange();
     setDtFrom(r.dt_from);
     setDtTo(r.dt_to);
     setVariationId(product.variations?.[0]?.variation_id ?? '');
@@ -91,8 +95,8 @@ export function RegiondoScheduleModal({ isOpen, product, onClose }: RegiondoSche
               >
                 {variations.map((v) => (
                   <option key={v.variation_id} value={v.variation_id}>
-                    {v.variation_id}
-                    {v.options?.length ? ` (${v.options.map((o) => o.option_id).join(', ')})` : ''}
+                    {v.name || v.title || v.variation_name || v.variation_id}
+                    {v.options?.length ? ` · ${v.options.map((o) => o.option_id).join(', ')}` : ''}
                   </option>
                 ))}
               </select>
@@ -132,7 +136,7 @@ export function RegiondoScheduleModal({ isOpen, product, onClose }: RegiondoSche
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            Standardzeitraum: die nächsten 7 Tage (heute bis einschließlich +6 Tage). Sie können den Zeitraum anpassen und erneut laden.
+            Standard: nur heute. Zeitraum bei Bedarf erweitern und „Laden“ klicken.
           </p>
         </div>
 
@@ -176,14 +180,22 @@ export function RegiondoScheduleModal({ isOpen, product, onClose }: RegiondoSche
                     })}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {row.times.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex px-2 py-0.5 text-xs font-medium rounded-md bg-white border border-gray-200 text-gray-800"
-                      >
-                        {t}
-                      </span>
-                    ))}
+                    {row.slots.map((s) => {
+                      const cap = formatSlotCapacityLabel(s);
+                      return (
+                        <span
+                          key={s.time}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-md bg-white border border-gray-200 text-gray-800"
+                        >
+                          <span>{s.time}</span>
+                          {cap && (
+                            <span className="text-gray-500 font-normal tabular-nums" title="Verfügbar / Kapazität">
+                              · {cap}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </li>
               ))}

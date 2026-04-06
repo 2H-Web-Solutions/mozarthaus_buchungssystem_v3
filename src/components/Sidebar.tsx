@@ -47,10 +47,10 @@ export function Sidebar() {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Neue Reservierung', path: '/new-booking', icon: Ticket },
+    { name: 'Neue Reservierung', path: '/booking', icon: Ticket },
     { name: 'Events / Termine', path: '/events', icon: CalendarDays },
     { name: 'Status', path: '/kanban', icon: Columns },
-    { name: 'Buchungen', path: '/bookings', icon: ClipboardList },
+    { name: 'Transaction', path: '/transaction', icon: ClipboardList },
     { name: 'Statistiken', path: '/statistics', icon: BarChart },
     { 
       name: 'Stammdaten', 

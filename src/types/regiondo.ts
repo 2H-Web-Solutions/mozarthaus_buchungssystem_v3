@@ -4,12 +4,34 @@
  */
 
 export interface RegiondoVariationOption {
-  option_id: string;
+  /** Product option id for checkout payloads (not the same as `variation_id`). */
+  option_id: string | number;
 }
 
 export interface RegiondoVariation {
   variation_id: string;
-  options: RegiondoVariationOption[];
+  /** Option IDs — not always present on product detail */
+  options?: RegiondoVariationOption[];
+  /** Category / tariff label, e.g. "Studenten" */
+  name?: string;
+  title?: string;
+  variation_name?: string;
+  /** Validity window for this tariff (YYYY-MM-DD) */
+  from?: string;
+  to?: string;
+  appointment_type?: string;
+  /**
+   * Date → time slots from product detail (same idea as `GET …/availabilities/{id}` `data`).
+   * Often nested arrays, e.g. `"2026-04-07": [[ "20:00:00" ]]`.
+   */
+  available_dates?: Record<string, unknown>;
+  sku?: string;
+  /** Display / gross price — string or number depending on API version */
+  price?: string | number;
+  base_price?: string | number;
+  original_price?: string | number;
+  final_price?: string | number;
+  sales_price?: string | number;
 }
 
 export interface RegiondoTips {

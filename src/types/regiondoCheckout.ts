@@ -3,6 +3,10 @@
  * @see https://sandbox-api.regiondo.com/docs/
  */
 
+/**
+ * Line item for checkout/totals and checkout/purchase.
+ * Minimal purchase shape: `product_id`, `option_id`, `date_time`, `qty` (optional `source_type` per line).
+ */
 export interface RegiondoCartItem {
   product_id: number;
   option_id?: number;
@@ -54,7 +58,7 @@ export interface RegiondoPaymentBlock {
   options?: RegiondoPaymentOptionEntry[];
 }
 
-/** POST /checkout/purchase body (minimal fields; extend as needed). */
+/** POST /checkout/purchase body (minimal: `items` + `contact_data`; payment optional per Regiondo setup). */
 export interface RegiondoPurchaseInput {
   items: RegiondoCartItem[];
   contact_data: RegiondoContactDataPurchase;
@@ -66,7 +70,7 @@ export interface RegiondoPurchaseInput {
   source_type?: number;
   coupon_code?: string;
   printer_html?: string;
-  payment: RegiondoPaymentBlock;
+  payment?: RegiondoPaymentBlock;
 }
 
 export interface RegiondoHoldResponse {

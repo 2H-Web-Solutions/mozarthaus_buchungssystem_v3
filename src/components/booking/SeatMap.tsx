@@ -129,8 +129,15 @@ export function SeatMap({ eventId, requiredSeats, selectedSeats, onSeatSelect, c
                 
                 <div className="flex gap-2">
                   {rowConfig.elements.map((seatItem, idx) => {
+                    const elKey = `${rowConfig.rowId}-${idx}-${seatItem.type}`;
                     if (seatItem.type === 'spacer') {
-                      return <div key={`spacer-${idx}`} style={{ width: `${seatItem.width * 2.5}rem` }} className="h-10" />;
+                      return (
+                        <div
+                          key={elKey}
+                          style={{ width: `${seatItem.width * 2.5}rem` }}
+                          className="h-10"
+                        />
+                      );
                     }
 
                     const s = seatItem as { id: string; number: number };

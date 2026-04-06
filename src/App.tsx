@@ -1,9 +1,10 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardShell } from './components/DashboardShell';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { Settings } from './pages/Settings';
 import { Events } from './pages/Events';
+import { RegiondoProductDetailPage } from './pages/RegiondoProductDetailPage';
 import { EventDetails } from './pages/EventDetails';
 import { EventBelegungsplan } from './pages/events/EventBelegungsplan';
 import { Bookings } from './pages/Bookings';
@@ -34,11 +35,14 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="events" element={<Events />} />
+          <Route path="events/regiondo/:productId" element={<RegiondoProductDetailPage />} />
           <Route path="events/:id" element={<EventDetails />} />
           <Route path="events/:eventId/belegungsplan" element={<EventBelegungsplan />} />
-          <Route path="new-booking" element={<BookingFlow />} />
+          <Route path="booking" element={<BookingFlow />} />
+          <Route path="new-booking" element={<Navigate to="/booking" replace />} />
           <Route path="kanban" element={<Kanban />} />
-          <Route path="bookings" element={<Bookings />} />
+          <Route path="transaction" element={<Bookings />} />
+          <Route path="bookings" element={<Navigate to="/transaction" replace />} />
           <Route path="statistics" element={<Statistics />} />
           <Route path="stammdaten/partner" element={<Partners />} />
           <Route path="stammdaten/partner-types" element={<PartnerTypes />} />

@@ -52,13 +52,23 @@ export interface Booking {
   eventTitle?: string;
   totalAmount: number;
   regiondoProductId?: string | number; // NEU: Die Event-ID für Regiondo
-  
+  /** Gespeichert nach erfolgreichem POST /checkout/purchase */
+  regiondoOrderId?: string;
+  regiondoOrderNumber?: string;
+  /**
+   * Snapshot von POST /checkout/totals (Zahlung, buyer_data, Roh-JSON) — nur lokal;
+   * wird nicht an den minimalen Regiondo-Purchase (`items` + `contact_data`) gesendet.
+   */
+  regiondoCheckoutMeta?: Record<string, unknown>;
+
   // Neue Felder für Buchungsvarianten
   bookingType?: 'einzel' | 'gruppe' | 'privat';
   sellerReference?: string;
   contactPerson?: string;
   groupPersons?: number;
   customTotalPrice?: number;
+  /** Privat- / Gruppenbuchung: eingegebener Preis pro Person (€). */
+  pricePerPerson?: number;
   receiptUrl?: string; // Link zum externen Stripe-Beleg / Regiondo-Ticket
 
   createdAt: Timestamp;

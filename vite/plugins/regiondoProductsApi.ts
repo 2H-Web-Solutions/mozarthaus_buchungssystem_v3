@@ -130,7 +130,7 @@ function regiondoProxyMiddleware(publicKey: string, privateKey: string, regiondo
           error: 'Regiondo proxy request failed',
           detail,
           hint:
-            'Check REGIONDO_API_HOST (use https://sandbox-api.regiondo.com for sandbox keys, https://api.regiondo.com for live), network/TLS, and that keys match that environment.',
+            'Check REGIONDO_API_HOST / VITE_REGIONDO_API_HOST (use https://sandbox-api.regiondo.com for sandbox keys, https://api.regiondo.com for live), network/TLS, and that keys match that environment.',
         })
       );
     }
@@ -155,7 +155,7 @@ function missingKeysMiddleware() {
       res.end(
         JSON.stringify({
           error:
-            'Regiondo API keys not configured. Set REGIONDO_PUBLIC_KEY and REGIONDO_PRIVATE_KEY in .env (not VITE_).',
+            'Regiondo API keys not configured. Set VITE_REGIONDO_PUBLIC_KEY and VITE_REGIONDO_PRIVATE_KEY in .env (see .env.example).',
         })
       );
       return;
@@ -164,17 +164,27 @@ function missingKeysMiddleware() {
   };
 }
 
+function regiondoKeys(env: Record<string, string>): { publicKey: string; privateKey: string } {
+  return {
+    publicKey: env.VITE_REGIONDO_PUBLIC_KEY || env.REGIONDO_PUBLIC_KEY || '',
+    privateKey: env.VITE_REGIONDO_PRIVATE_KEY || env.REGIONDO_PRIVATE_KEY || '',
+  };
+}
+
+function regiondoApiHost(env: Record<string, string>): string {
+  return normalizeRegiondoHost(env.VITE_REGIONDO_API_HOST || env.REGIONDO_API_HOST);
+}
+
 export function regiondoProductsApiPlugin(env: Record<string, string>): Plugin {
-  const publicKey = env.REGIONDO_PUBLIC_KEY || '';
-  const privateKey = env.REGIONDO_PRIVATE_KEY || '';
-  const regiondoHost = normalizeRegiondoHost(env.REGIONDO_API_HOST);
+  const { publicKey, privateKey } = regiondoKeys(env);
+  const regiondoHost = regiondoApiHost(env);
 
   return {
     name: 'regiondo-products-api',
     configureServer(server) {
       if (!publicKey || !privateKey) {
         console.warn(
-          '[regiondo-api] REGIONDO_PUBLIC_KEY / REGIONDO_PRIVATE_KEY missing — /api/regiondo/* will return 503.'
+          '[regiondo-api] VITE_REGIONDO_PUBLIC_KEY / VITE_REGIONDO_PRIVATE_KEY (or legacy REGIONDO_PUBLIC_KEY / REGIONDO_PRIVATE_KEY) missing — /api/regiondo/* will return 503.'
         );
         server.middlewares.use(missingKeysMiddleware());
         return;

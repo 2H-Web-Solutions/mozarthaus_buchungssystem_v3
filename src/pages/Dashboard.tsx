@@ -86,7 +86,7 @@ export function Dashboard() {
             <Trash2 className="w-5 h-5"/> {isCleaning ? 'Lösche...' : 'Testdaten Cleanup'}
           </button>
           <button 
-            onClick={() => navigate('/new-booking')}
+            onClick={() => navigate('/booking')}
             className="flex items-center justify-center gap-2 bg-brand-primary text-white px-8 py-3.5 rounded-xl hover:bg-red-700 transition font-bold shadow-xl shadow-brand-primary/20 animate-in zoom-in duration-300"
           >
             Neue Reservierung <ArrowRight className="w-5 h-5"/>
@@ -173,7 +173,7 @@ export function Dashboard() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-8">
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Ticket className="w-5 h-5 text-brand-primary"/> Letzte 10 Buchungen</h2>
-          <button onClick={() => navigate('/bookings')} className="px-4 py-2 bg-white border border-gray-200 shadow-sm text-sm text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition">
+          <button onClick={() => navigate('/transaction')} className="px-4 py-2 bg-white border border-gray-200 shadow-sm text-sm text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition">
             Alle anzeigen
           </button>
         </div>

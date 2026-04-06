@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchRegiondoProducts } from '../services/regiondoProductsService';
 import type { RegiondoPage, RegiondoProduct } from '../types/regiondo';
 import { RegiondoScheduleModal } from '../components/events/RegiondoScheduleModal';
-import { RegiondoProductDetailModal } from '../components/events/RegiondoProductDetailModal';
-import { Calendar, ExternalLink, Info, RefreshCw } from 'lucide-react';
+import { Calendar, ExternalLink, RefreshCw } from 'lucide-react';
 
 function currencyLabel(p: RegiondoProduct): string {
   return p.currency_code || p.curency_code || 'EUR';
@@ -40,12 +40,12 @@ function publicProductUrl(p: RegiondoProduct): string | undefined {
 }
 
 export function Events() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<RegiondoProduct[]>([]);
   const [pageInfo, setPageInfo] = useState<RegiondoPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scheduleProduct, setScheduleProduct] = useState<RegiondoProduct | null>(null);
-  const [detailProduct, setDetailProduct] = useState<RegiondoProduct | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,7 +117,6 @@ export function Events() {
               <th className="p-3 whitespace-nowrap">Bewertung</th>
               <th className="p-3 whitespace-nowrap">Bestand</th>
               <th className="p-3 whitespace-nowrap">Varianten</th>
-              <th className="p-3 whitespace-nowrap">Details</th>
               <th className="p-3 whitespace-nowrap">Termine</th>
               <th className="p-3 text-right whitespace-nowrap">Shop</th>
             </tr>
@@ -125,13 +124,13 @@ export function Events() {
           <tbody className="divide-y divide-gray-200">
             {loading && products.length === 0 ? (
               <tr>
-                <td colSpan={12} className="p-8 text-center text-gray-500">
+                <td colSpan={11} className="p-8 text-center text-gray-500">
                   Daten werden von Regiondo geladen…
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={12} className="p-8 text-center text-gray-500">
+                <td colSpan={11} className="p-8 text-center text-gray-500">
                   Keine Produkte gefunden.
                 </td>
               </tr>
@@ -141,7 +140,19 @@ export function Events() {
                 const stock = stockLabel(p);
                 const vars = p.variations?.length ?? 0;
                 return (
-                  <tr key={p.product_id} className="hover:bg-gray-50 transition-colors align-top">
+                  <tr
+                    key={p.product_id}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(`/events/regiondo/${p.product_id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigate(`/events/regiondo/${p.product_id}`);
+                      }
+                    }}
+                    className="hover:bg-gray-50/90 transition-colors align-top cursor-pointer"
+                  >
                     <td className="p-3">
                       {p.thumbnail ? (
                         <img
@@ -191,17 +202,10 @@ export function Events() {
                     <td className="p-3">
                       <button
                         type="button"
-                        onClick={() => setDetailProduct(p)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-800 bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <Info className="w-3.5 h-3.5 shrink-0" />
-                        Details
-                      </button>
-                    </td>
-                    <td className="p-3">
-                      <button
-                        type="button"
-                        onClick={() => setScheduleProduct(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setScheduleProduct(p);
+                        }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-primary/30 text-brand-primary bg-white hover:bg-red-50 transition-colors"
                       >
                         <Calendar className="w-3.5 h-3.5 shrink-0" />
@@ -236,12 +240,6 @@ export function Events() {
         isOpen={scheduleProduct !== null}
         product={scheduleProduct}
         onClose={() => setScheduleProduct(null)}
-      />
-
-      <RegiondoProductDetailModal
-        isOpen={detailProduct !== null}
-        listProduct={detailProduct}
-        onClose={() => setDetailProduct(null)}
       />
     </div>
   );

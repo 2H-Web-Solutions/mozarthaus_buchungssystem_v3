@@ -159,3 +159,30 @@ export function defaultAvailabilityDateRange(): { dt_from: string; dt_to: string
     dt_to: toYmdLocal(to),
   };
 }
+
+/** Single calendar day (local): today as both `dt_from` and `dt_to` (inclusive). */
+export function todayAvailabilityDateRange(): { dt_from: string; dt_to: string } {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const ymd = toYmdLocal(d);
+  return { dt_from: ymd, dt_to: ymd };
+}
+
+/**
+ * Request window for one on-screen week (Mon–Sun).
+ * `dt_from` is the **Sunday before** that Monday: some Regiondo deployments behave as if the first day
+ * after `dt_from` is the first returned date, which would skip Monday if `dt_from` were Monday.
+ * The booking UI still **filters** rows to Mon–Sun only.
+ */
+export function weekAvailabilityDateRange(weekStartMonday: Date): { dt_from: string; dt_to: string } {
+  const monday = new Date(weekStartMonday);
+  monday.setHours(0, 0, 0, 0);
+  const from = new Date(monday);
+  from.setDate(from.getDate() - 1);
+  const to = new Date(monday);
+  to.setDate(to.getDate() + 6);
+  return {
+    dt_from: toYmdLocal(from),
+    dt_to: toYmdLocal(to),
+  };
+}

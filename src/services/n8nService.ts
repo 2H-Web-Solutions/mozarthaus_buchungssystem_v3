@@ -48,3 +48,32 @@ export async function triggerN8nOutboundSync(booking: Booking) {
     console.error('[n8n Regiondo Sync] Webhook execution threw synchronous error:', error);
   }
 }
+
+/**
+ * Sends a manual booking request from the admin interface to n8n for orchestration.
+ */
+export async function sendManualBookingToN8n(payload: any) {
+  const url = import.meta.env.VITE_N8N_WEBHOOKOUTBOUND_URL;
+  
+  if (!url) {
+    throw new Error('VITE_N8N_WEBHOOKOUTBOUND_URL is not configured in .env');
+  }
+  
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`n8n webhook error: ${text || res.status}`);
+    }
+    
+    return await res.json();
+  } catch (error) {
+    console.error('[n8n Manual Booking] Error:', error);
+    throw error;
+  }
+}
