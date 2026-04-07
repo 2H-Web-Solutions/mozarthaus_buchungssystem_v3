@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchRegiondoProducts } from '../services/regiondoProductsService';
-import type { RegiondoPage, RegiondoProduct } from '../types/regiondo';
+import type { RegiondoProduct } from '../types/regiondo';
 import { RegiondoScheduleModal } from '../components/events/RegiondoScheduleModal';
 import { Calendar, ExternalLink, RefreshCw } from 'lucide-react';
 
@@ -35,38 +35,49 @@ function stockLabel(p: RegiondoProduct): { text: string; ok: boolean } {
   return { text: '—', ok: true };
 }
 
+/** Heuristic for list rows when API returns both active and inactive products (`active_only=false`). */
+function catalogStatusLabel(p: RegiondoProduct): { text: string; tone: 'ok' | 'warn' | 'muted' } {
+  if (p.is_expired === '1') return { text: 'Abgelaufen', tone: 'muted' };
+  if (p.in_stock === '0') return { text: 'Inaktiv / kein Verkauf', tone: 'warn' };
+  return { text: 'Aktiv', tone: 'ok' };
+}
+
 function publicProductUrl(p: RegiondoProduct): string | undefined {
   return p.wl_regiondo_url || p.regiondo_url;
 }
 
+/** Regiondo `GET /v1/products` — `active_only` query */
+type ProductVisibilityFilter = 'active_only' | 'include_inactive';
+
 export function Events() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<RegiondoProduct[]>([]);
-  const [pageInfo, setPageInfo] = useState<RegiondoPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scheduleProduct, setScheduleProduct] = useState<RegiondoProduct | null>(null);
+  const [visibilityFilter, setVisibilityFilter] = useState<ProductVisibilityFilter>('include_inactive');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { products: list, page } = await fetchRegiondoProducts({
+      const activeOnly = visibilityFilter === 'active_only';
+      const { products: list } = await fetchRegiondoProducts({
         limit: 250,
         offset: 0,
         store_locale: 'de-AT',
+        active_only: activeOnly,
+        fetchAllPages: true,
       });
       setProducts(list);
-      setPageInfo(page);
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : 'Produkte konnten nicht geladen werden.');
       setProducts([]);
-      setPageInfo(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [visibilityFilter]);
 
   useEffect(() => {
     void load();
@@ -74,28 +85,33 @@ export function Events() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-heading text-brand-primary">Events & Konzerte</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Produkte aus der Regiondo API
-            {pageInfo != null && (
-              <span className="ml-2">
-                · {pageInfo.total_items} Eintrag{pageInfo.total_items === 1 ? '' : 'e'}
-                {pageInfo.total_pages > 1 ? ` · Seite ${pageInfo.current} / ${pageInfo.total_pages}` : ''}
-              </span>
-            )}
-          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 shrink-0"
-        >
-          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Laden…' : 'Aktualisieren'}
-        </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-gray-700">Katalog-Filter</span>
+            <select
+              value={visibilityFilter}
+              onChange={(e) => setVisibilityFilter(e.target.value as ProductVisibilityFilter)}
+              disabled={loading}
+              className="min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary disabled:opacity-50"
+            >
+              <option value="active_only">Nur aktive Produkte</option>
+              <option value="include_inactive">Aktiv + inaktiv</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 sm:self-end"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Laden…' : 'Aktualisieren'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -115,6 +131,7 @@ export function Events() {
               <th className="p-3">Ort</th>
               <th className="p-3 whitespace-nowrap">Dauer</th>
               <th className="p-3 whitespace-nowrap">Bewertung</th>
+              <th className="p-3 whitespace-nowrap">Status</th>
               <th className="p-3 whitespace-nowrap">Bestand</th>
               <th className="p-3 whitespace-nowrap">Varianten</th>
               <th className="p-3 whitespace-nowrap">Termine</th>
@@ -124,13 +141,13 @@ export function Events() {
           <tbody className="divide-y divide-gray-200">
             {loading && products.length === 0 ? (
               <tr>
-                <td colSpan={11} className="p-8 text-center text-gray-500">
+                <td colSpan={12} className="p-8 text-center text-gray-500">
                   Daten werden von Regiondo geladen…
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={11} className="p-8 text-center text-gray-500">
+                <td colSpan={12} className="p-8 text-center text-gray-500">
                   Keine Produkte gefunden.
                 </td>
               </tr>
@@ -138,6 +155,7 @@ export function Events() {
               products.map((p) => {
                 const href = publicProductUrl(p);
                 const stock = stockLabel(p);
+                const catalog = catalogStatusLabel(p);
                 const vars = p.variations?.length ?? 0;
                 return (
                   <tr
@@ -189,6 +207,19 @@ export function Events() {
                     </td>
                     <td className="p-3 text-sm whitespace-nowrap">{formatDuration(p)}</td>
                     <td className="p-3 text-sm whitespace-nowrap">{formatRating(p)}</td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded-full ${
+                          catalog.tone === 'ok'
+                            ? 'bg-emerald-50 text-emerald-900'
+                            : catalog.tone === 'warn'
+                              ? 'bg-amber-50 text-amber-900'
+                              : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {catalog.text}
+                      </span>
+                    </td>
                     <td className="p-3">
                       <span
                         className={`px-2 py-0.5 text-xs rounded-full ${

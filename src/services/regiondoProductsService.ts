@@ -43,6 +43,15 @@ export interface FetchRegiondoProductsOptions {
   limit?: number;
   offset?: number;
   store_locale?: string;
+  /**
+   * `false` = include inactive (non-bookable / hidden) products; `true` = active only.
+   * @see Regiondo GET /v1/products — `active_only`
+   */
+  active_only?: boolean;
+  /**
+   * Follow `page` until all items are loaded (uses `limit` per request, max 250).
+   */
+  fetchAllPages?: boolean;
 }
 
 export interface FetchRegiondoProductsResult {
@@ -51,18 +60,16 @@ export interface FetchRegiondoProductsResult {
   raw?: RegiondoProductsListResponse;
 }
 
-/**
- * Fetches Regiondo products. In development (and `vite preview`), uses the Vite middleware
- * at `/api/regiondo/products` (HMAC signed). In production static hosting, set
- * `VITE_REGIONDO_PRODUCTS_API_URL` to your own HTTPS proxy that calls Regiondo.
- */
-export async function fetchRegiondoProducts(
-  params: FetchRegiondoProductsOptions = {}
+async function fetchRegiondoProductsPage(
+  params: FetchRegiondoProductsOptions
 ): Promise<FetchRegiondoProductsResult> {
   const searchParams = new URLSearchParams();
-  if (params.limit != null) searchParams.set('limit', String(params.limit));
+  const limit = Math.min(params.limit ?? 250, 250);
+  searchParams.set('limit', String(limit));
   if (params.offset != null) searchParams.set('offset', String(params.offset));
   if (params.store_locale) searchParams.set('store_locale', params.store_locale);
+  if (params.active_only === true) searchParams.set('active_only', 'true');
+  if (params.active_only === false) searchParams.set('active_only', 'false');
 
   const url = buildRegiondoProxyUrl('products', searchParams);
 
@@ -80,6 +87,40 @@ export async function fetchRegiondoProducts(
       : undefined;
 
   return { products, page, raw };
+}
+
+/**
+ * Fetches Regiondo products. In development (and `vite preview`), uses the Vite middleware
+ * at `/api/regiondo/products` (HMAC signed). In production static hosting, set
+ * `VITE_REGIONDO_PRODUCTS_API_URL` to your own HTTPS proxy that calls Regiondo.
+ */
+export async function fetchRegiondoProducts(
+  params: FetchRegiondoProductsOptions = {}
+): Promise<FetchRegiondoProductsResult> {
+  if (!params.fetchAllPages) {
+    return fetchRegiondoProductsPage(params);
+  }
+
+  const limit = Math.min(params.limit ?? 250, 250);
+  const startOffset = params.offset ?? 0;
+  const all: RegiondoProduct[] = [];
+  let lastPage: RegiondoPage | null = null;
+  let rawLast: RegiondoProductsListResponse | undefined;
+  let offset = startOffset;
+
+  for (;;) {
+    const chunk = await fetchRegiondoProductsPage({ ...params, limit, offset, fetchAllPages: false });
+    all.push(...chunk.products);
+    lastPage = chunk.page;
+    rawLast = chunk.raw;
+    if (chunk.products.length === 0) break;
+    if (chunk.products.length < limit) break;
+    if (lastPage && all.length >= lastPage.total_items) break;
+    if (!lastPage) break;
+    offset += limit;
+  }
+
+  return { products: all, page: lastPage, raw: rawLast };
 }
 
 export interface FetchRegiondoProductByIdOptions {
