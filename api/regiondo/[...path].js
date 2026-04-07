@@ -16,6 +16,14 @@ function parsePathParam(value) {
   return String(value).split('/').filter(Boolean);
 }
 
+function partsFromUrl(req) {
+  const base = 'http://localhost';
+  const pathname = new URL(req.url || '/', base).pathname;
+  const prefix = '/api/regiondo/';
+  if (!pathname.startsWith(prefix)) return [];
+  return pathname.slice(prefix.length).split('/').filter(Boolean);
+}
+
 function regiondoPathFromParts(parts) {
   const rest = parts.join('/').replace(/^\/+|\/+$/g, '');
   if (!rest) return null;
@@ -50,7 +58,13 @@ module.exports = async function handler(req, res) {
 
     const query = (req && req.query) || {};
     const regiondoHost = normalizeHost(process.env.REGIONDO_API_HOST || process.env.VITE_REGIONDO_API_HOST);
-    const parts = parsePathParam(query.path);
+    const parts = partsFromUrl(req);
+    if (parts.length === 0) {
+      const fallback = parsePathParam(query.path);
+      if (fallback.length > 0) {
+        parts.push(...fallback);
+      }
+    }
     const path = regiondoPathFromParts(parts);
     if (!path) {
       res.status(400).json({ error: 'Missing Regiondo sub-path' });
