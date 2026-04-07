@@ -1,7 +1,9 @@
-import { createHmac } from 'node:crypto';
-
 const DEFAULT_REGIONDO_HOST = 'https://api.regiondo.com';
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+
+export const config = {
+  runtime: 'nodejs',
+};
 
 function normalizeHost(raw: string | undefined): string {
   const t = (raw ?? '').trim().replace(/\/+$/, '');
@@ -23,10 +25,25 @@ function parsePathParam(value: string | string[] | undefined): string[] {
   return value.split('/').filter(Boolean);
 }
 
-function sign(publicKey: string, privateKey: string, queryString: string) {
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function sign(publicKey: string, privateKey: string, queryString: string) {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const payload = timestamp + publicKey + queryString;
-  const hash = createHmac('sha256', privateKey).update(payload).digest('hex');
+  const hash = await hmacSha256Hex(privateKey, payload);
   return { timestamp, hash };
 }
 
@@ -69,7 +86,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const queryString = qp.toString();
-    const { timestamp, hash } = sign(publicKey, privateKey, queryString);
+    const { timestamp, hash } = await sign(publicKey, privateKey, queryString);
     const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
 
     const headers: Record<string, string> = {
