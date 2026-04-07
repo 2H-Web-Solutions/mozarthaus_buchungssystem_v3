@@ -14,6 +14,13 @@ function normalizeSecret(raw) {
   return String(raw || '').trim();
 }
 
+function maskSecret(value) {
+  const s = String(value || '');
+  if (!s) return '(empty)';
+  if (s.length <= 6) return `${s[0]}***${s[s.length - 1]}`;
+  return `${s.slice(0, 4)}...${s.slice(-2)} (len:${s.length})`;
+}
+
 function parsePathParam(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -56,8 +63,13 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const publicKey = normalizeSecret(process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY);
-    const privateKey = normalizeSecret(process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY);
+    const rawServerPublic = process.env.REGIONDO_PUBLIC_KEY;
+    const rawServerPrivate = process.env.REGIONDO_PRIVATE_KEY;
+    const rawVitePublic = process.env.VITE_REGIONDO_PUBLIC_KEY;
+    const rawVitePrivate = process.env.VITE_REGIONDO_PRIVATE_KEY;
+
+    const publicKey = normalizeSecret(rawServerPublic || rawVitePublic);
+    const privateKey = normalizeSecret(rawServerPrivate || rawVitePrivate);
     if (!publicKey || !privateKey) {
       res.status(503).json({
         error:
@@ -67,6 +79,7 @@ module.exports = async function handler(req, res) {
     }
 
     const query = (req && req.query) || {};
+    const debugMode = String(query.__debug || '') === '1';
     const regiondoHost = normalizeHost(process.env.REGIONDO_API_HOST || process.env.VITE_REGIONDO_API_HOST);
     const parts = partsFromUrl(req);
     if (parts.length === 0) {
@@ -83,6 +96,25 @@ module.exports = async function handler(req, res) {
 
     const queryString = rawQueryFromUrl(req);
     const queryParams = new URLSearchParams(queryString);
+    if (debugMode) {
+      res.status(200).json({
+        ok: true,
+        envSource: {
+          usingServerPublic: Boolean(rawServerPublic),
+          usingServerPrivate: Boolean(rawServerPrivate),
+          usingVitePublic: Boolean(rawVitePublic),
+          usingVitePrivate: Boolean(rawVitePrivate),
+        },
+        masked: {
+          publicKey: maskSecret(publicKey),
+          privateKey: maskSecret(privateKey),
+        },
+        regiondoHost,
+        path,
+        queryString,
+      });
+      return;
+    }
     const { timestamp, hash } = sign(publicKey, privateKey, queryString);
     const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
 
