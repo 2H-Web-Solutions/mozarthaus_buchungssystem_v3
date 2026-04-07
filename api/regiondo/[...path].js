@@ -58,6 +58,11 @@ function regiondoPathFromParts(parts) {
   return `/v1/${rest}`;
 }
 
+function productIdFromPath(path) {
+  const m = path.match(/^\/v1\/products\/([^/?#]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function sign(publicKey, privateKey, queryString) {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const payload = timestamp + publicKey + queryString;
@@ -149,11 +154,28 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const response = await fetch(target, {
+    let response = await fetch(target, {
       method,
       headers,
       body,
     });
+    const maybeProductId = productIdFromPath(path);
+    if (response.status === 404 && method === 'GET' && maybeProductId) {
+      const retryParams = new URLSearchParams(queryString);
+      retryParams.set('product_id', maybeProductId);
+      const retryQuery = retryParams.toString();
+      const retryTarget = `${regiondoHost}/v1/products${retryQuery ? `?${retryQuery}` : ''}`;
+      const retrySig = sign(publicKey, privateKey, retryQuery);
+      const retryHeaders = {
+        ...headers,
+        'X-API-TIME': retrySig.timestamp,
+        'X-API-HASH': retrySig.hash,
+      };
+      response = await fetch(retryTarget, {
+        method,
+        headers: retryHeaders,
+      });
+    }
     const text = await response.text();
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
     res.status(response.status).send(text);
