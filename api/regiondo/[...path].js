@@ -1,62 +1,45 @@
+const { createHmac } = require('crypto');
+
 const DEFAULT_REGIONDO_HOST = 'https://api.regiondo.com';
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
-export const config = {
-  runtime: 'nodejs',
-};
-
-function normalizeHost(raw: string | undefined): string {
-  const t = (raw ?? '').trim().replace(/\/+$/, '');
+function normalizeHost(raw) {
+  const t = String(raw || '').trim().replace(/\/+$/, '');
   if (!t) return DEFAULT_REGIONDO_HOST;
   if (t.startsWith('http://') || t.startsWith('https://')) return t;
   return `https://${t}`;
 }
 
-function regiondoPathFromParts(parts: string[]): string | null {
+function parsePathParam(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return String(value).split('/').filter(Boolean);
+}
+
+function regiondoPathFromParts(parts) {
   const rest = parts.join('/').replace(/^\/+|\/+$/g, '');
   if (!rest) return null;
   if (rest === 'products') return '/v1/products';
   return `/v1/${rest}`;
 }
 
-function parsePathParam(value: string | string[] | undefined): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  return value.split('/').filter(Boolean);
-}
-
-async function hmacSha256Hex(secret: string, message: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function sign(publicKey: string, privateKey: string, queryString: string) {
+function sign(publicKey, privateKey, queryString) {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const payload = timestamp + publicKey + queryString;
-  const hash = await hmacSha256Hex(privateKey, payload);
+  const hash = createHmac('sha256', privateKey).update(payload).digest('hex');
   return { timestamp, hash };
 }
 
-export default async function handler(req: any, res: any) {
+module.exports = async function handler(req, res) {
   try {
-    if (!ALLOWED_METHODS.has(req.method || '')) {
+    const method = req && req.method ? req.method : '';
+    if (!ALLOWED_METHODS.has(method)) {
       res.status(405).send('Method Not Allowed');
       return;
     }
 
     const publicKey = process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY || '';
     const privateKey = process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY || '';
-
     if (!publicKey || !privateKey) {
       res.status(503).json({
         error:
@@ -65,11 +48,10 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const query = (req?.query ?? {}) as Record<string, string | string[] | undefined>;
+    const query = (req && req.query) || {};
     const regiondoHost = normalizeHost(process.env.REGIONDO_API_HOST || process.env.VITE_REGIONDO_API_HOST);
     const parts = parsePathParam(query.path);
     const path = regiondoPathFromParts(parts);
-
     if (!path) {
       res.status(400).json({ error: 'Missing Regiondo sub-path' });
       return;
@@ -79,38 +61,37 @@ export default async function handler(req: any, res: any) {
     for (const [k, v] of Object.entries(query)) {
       if (k === 'path') continue;
       if (Array.isArray(v)) {
-        for (const item of v) qp.append(k, item);
+        for (const item of v) qp.append(k, String(item));
       } else if (v != null) {
         qp.append(k, String(v));
       }
     }
 
     const queryString = qp.toString();
-    const { timestamp, hash } = await sign(publicKey, privateKey, queryString);
+    const { timestamp, hash } = sign(publicKey, privateKey, queryString);
     const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
 
-    const headers: Record<string, string> = {
+    const headers = {
       'X-API-ID': publicKey,
       'X-API-TIME': timestamp,
       'X-API-HASH': hash,
       Accept: 'application/json',
-      'Accept-Language': (query.store_locale as string) || 'de-AT',
+      'Accept-Language': String(query.store_locale || 'de-AT'),
       'User-Agent': 'Mozarthaus-Regiondo-Proxy/1.0',
     };
 
-    const rawBody = ['GET', 'DELETE'].includes(req.method || '') ? undefined : req.body;
-    let body: string | undefined;
-    if (rawBody != null && rawBody !== '') {
-      if (typeof rawBody === 'string') {
-        body = rawBody;
+    let body;
+    if (!['GET', 'DELETE'].includes(method) && req.body != null && req.body !== '') {
+      if (typeof req.body === 'string') {
+        body = req.body;
       } else {
-        body = JSON.stringify(rawBody);
-        headers['Content-Type'] = (req.headers?.['content-type'] as string) || 'application/json';
+        body = JSON.stringify(req.body);
+        headers['Content-Type'] = (req.headers && req.headers['content-type']) || 'application/json';
       }
     }
 
     const response = await fetch(target, {
-      method: req.method,
+      method,
       headers,
       body,
     });
@@ -118,11 +99,9 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
     res.status(response.status).send(text);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     res.status(500).json({
       error: 'Regiondo proxy handler crashed',
-      detail,
-      hint: 'Check Vercel function logs for stack trace and validate env variables.',
+      detail: error && error.message ? error.message : String(error),
     });
   }
-}
+};
