@@ -63,6 +63,14 @@ function productIdFromPath(path) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function parseJsonSafe(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function sign(publicKey, privateKey, queryString) {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const payload = timestamp + publicKey + queryString;
@@ -154,6 +162,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    const attemptedTargets = [target];
     let response = await fetch(target, {
       method,
       headers,
@@ -165,6 +174,7 @@ module.exports = async function handler(req, res) {
       retryParams.set('product_id', maybeProductId);
       const retryQuery = retryParams.toString();
       const retryTarget = `${regiondoHost}/v1/products${retryQuery ? `?${retryQuery}` : ''}`;
+      attemptedTargets.push(retryTarget);
       const retrySig = sign(publicKey, privateKey, retryQuery);
       const retryHeaders = {
         ...headers,
@@ -176,8 +186,48 @@ module.exports = async function handler(req, res) {
         headers: retryHeaders,
       });
     }
-    const text = await response.text();
+    let text = await response.text();
+    if (response.status === 404 && method === 'GET' && maybeProductId) {
+      const listParams = new URLSearchParams(queryString);
+      listParams.delete('currency');
+      listParams.set('limit', '250');
+      listParams.set('offset', '0');
+      const listQuery = listParams.toString();
+      const listTarget = `${regiondoHost}/v1/products${listQuery ? `?${listQuery}` : ''}`;
+      attemptedTargets.push(listTarget);
+      const listSig = sign(publicKey, privateKey, listQuery);
+      const listHeaders = {
+        ...headers,
+        'X-API-TIME': listSig.timestamp,
+        'X-API-HASH': listSig.hash,
+      };
+      const listResponse = await fetch(listTarget, { method: 'GET', headers: listHeaders });
+      const listText = await listResponse.text();
+      if (listResponse.ok) {
+        const body = parseJsonSafe(listText);
+        const data = body && Array.isArray(body.data) ? body.data : [];
+        const match = data.find((p) => String(p && p.product_id) === String(maybeProductId));
+        if (match) {
+          response = {
+            status: 200,
+            headers: new Headers({ 'content-type': 'application/json' }),
+          };
+          text = JSON.stringify({ data: match });
+        }
+      }
+    }
+    if (response.status === 404) {
+      res.setHeader('X-Proxy-Attempts', attemptedTargets.join(' || '));
+    }
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+    if (response.status === 404 && String(query.__debug || '') === '1') {
+      res.status(404).json({
+        error: 'Regiondo returned 404',
+        attemptedTargets,
+        responseBody: text,
+      });
+      return;
+    }
     res.status(response.status).send(text);
   } catch (error) {
     res.status(500).json({
