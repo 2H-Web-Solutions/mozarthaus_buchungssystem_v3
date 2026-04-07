@@ -1,8 +1,8 @@
 /**
  * POST /api/webhook-regiondo
- * Logs payload to server console (Vercel: Functions → Logs; local: terminal running `vercel dev` if used).
+ * Logs payload to Vercel Function logs.
  */
-module.exports = function handler(req, res) {
+function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'Method not allowed', allow: ['POST'] });
@@ -19,4 +19,7 @@ module.exports = function handler(req, res) {
   console.log('[webhook-regiondo]', JSON.stringify(line, null, 2));
 
   res.status(200).json({ ok: true, receivedAt: line.at });
-};
+}
+
+module.exports = handler;
+module.exports.default = handler;
