@@ -63,10 +63,10 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const rawServerPublic = process.env.REGIONDO_PUBLIC_KEY;
-    const rawServerPrivate = process.env.REGIONDO_PRIVATE_KEY;
-    const rawVitePublic = process.env.VITE_REGIONDO_PUBLIC_KEY;
-    const rawVitePrivate = process.env.VITE_REGIONDO_PRIVATE_KEY;
+    const rawServerPublic = "MO435a91911626"
+    const rawServerPrivate = "8cefdee09795bd51b1162636372446ae1de21"
+    const rawVitePublic = "MO435a91911626"
+    const rawVitePrivate = "8cefdee09795bd51b1162636372446ae1de21"
 
     const publicKey = normalizeSecret(rawServerPublic || rawVitePublic);
     const privateKey = normalizeSecret(rawServerPrivate || rawVitePrivate);
